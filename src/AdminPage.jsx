@@ -802,15 +802,15 @@ export default function AdminPage({ navigate }) {
 
                 <div className="admin-stat-card">
                   <div className="admin-stat-header">
-                    <span className="admin-stat-label">Active Readers</span>
+                    <span className="admin-stat-label">Today's Ebooks Sold</span>
                     <div className="admin-stat-icon" style={{ background: "#F3E8FF", color: "#9333EA" }}>
-                      <Users size={18} />
+                      <BookOpen size={18} />
                     </div>
                   </div>
-                  <div className="admin-stat-value">{kpis.uniqueCustomers}</div>
+                  <div className="admin-stat-value">{kpis.todaySales} copies</div>
                   <div className="admin-stat-sub">
-                    <span className="badge-neutral">Zero Refunds</span>
-                    <span>Verified buyers</span>
+                    <span className="badge-positive">Live Today</span>
+                    <span>{formatINR(kpis.todayIncome)} earned</span>
                   </div>
                 </div>
               </div>
