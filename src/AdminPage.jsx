@@ -20,8 +20,35 @@ import {
   Lock,
   Eye,
   Check,
-  AlertCircle
+  AlertCircle,
+  LayoutDashboard,
+  BookOpen,
+  FileText,
+  PlusCircle,
+  Settings,
+  QrCode,
+  Save,
+  RotateCcw,
+  Edit3,
+  Menu,
+  X,
+  ChevronRight,
+  Upload,
+  IndianRupee,
+  Sparkles
 } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
+import {
+  getSiteSettings,
+  saveSiteSettings,
+  getMergedChapters,
+  saveSingleChapter,
+  resetChapterToDefault,
+  resetAllChaptersToDefault,
+  convertBlocksToText,
+  convertTextToBlocks,
+  DEFAULT_SETTINGS
+} from "./siteData";
 
 const ORDERS_STORAGE_KEY = "ai_income_orders";
 const EMAILS_STORAGE_KEY = "ai_income_purchased_emails";
@@ -43,8 +70,8 @@ export const formatINR = (amount) => {
   }).format(amount);
 };
 
-// Generates realistic baseline demo orders for the previous 14 days
-function generateSeedOrders() {
+// Generates realistic baseline demo orders for previous 14 days
+function generateSeedOrders(price = 79) {
   const namesAndEmails = [
     { name: "Rahul Sharma", email: "rahul.sharma22@gmail.com" },
     { name: "Pooja Deshmukh", email: "pooja.d.pune@yahoo.com" },
@@ -70,8 +97,6 @@ function generateSeedOrders() {
 
   const orders = [];
   const now = new Date();
-
-  // Pattern of daily sales across the last 14 days (today down to 13 days ago)
   const salesDistribution = [8, 11, 7, 10, 6, 9, 8, 5, 7, 6, 4, 5, 3, 4];
 
   let idCounter = 101;
@@ -91,7 +116,7 @@ function generateSeedOrders() {
         id: `ORD-UPI-${targetDate.getFullYear()}${String(targetDate.getMonth() + 1).padStart(2, "0")}${String(targetDate.getDate()).padStart(2, "0")}-${idCounter++}`,
         name: person.name,
         email: person.email,
-        amount: 79,
+        amount: price,
         currency: "INR",
         paymentMethod: "UPI (bhushan.shimpi1@ybl)",
         date: targetDate.toISOString(),
@@ -105,14 +130,34 @@ function generateSeedOrders() {
 }
 
 export default function AdminPage({ navigate }) {
+  // Authentication State
   const [isAuthed, setIsAuthed] = useState(() => {
     const authStored = sessionStorage.getItem("ai_income_admin_authed");
     const currentUser = localStorage.getItem(CURRENT_USER_KEY) || "";
     return authStored === "true" || AUTHOR_EMAILS.includes(currentUser.toLowerCase());
   });
-
   const [pinInput, setPinInput] = useState("");
   const [pinError, setPinError] = useState("");
+
+  // Navigation State
+  const [activeTab, setActiveTab] = useState("dashboard"); // "dashboard" | "chapters" | "details" | "pricing" | "readers" | "manual_sale" | "backup"
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Settings State
+  const [settings, setSettings] = useState(getSiteSettings);
+  const [settingsSavedToast, setSettingsSavedToast] = useState("");
+
+  // Chapters State
+  const [chapters, setChapters] = useState(getMergedChapters);
+  const [selectedChapterId, setSelectedChapterId] = useState(1);
+  const [chapterForm, setChapterForm] = useState({
+    title: "",
+    desc: "",
+    readTime: "",
+    rawContent: ""
+  });
+  const [chapterPreviewMode, setChapterPreviewMode] = useState(false);
+  const [chapterSaveToast, setChapterSaveToast] = useState("");
 
   // Orders State
   const [orders, setOrders] = useState(() => {
@@ -121,32 +166,63 @@ export default function AdminPage({ navigate }) {
       if (stored && Array.isArray(stored) && stored.length > 0) {
         return stored;
       }
-    } catch (e) {
-      // fallback
-    }
-    const seed = generateSeedOrders();
+    } catch (e) {}
+    const seed = generateSeedOrders(settings.price);
     localStorage.setItem(ORDERS_STORAGE_KEY, JSON.stringify(seed));
     return seed;
   });
 
-  // Filter & Search states
+  // Filter & Search states for analytics
   const [filterMode, setFilterMode] = useState("all"); // "all" | "live"
   const [dateRange, setDateRange] = useState("14"); // "7" | "14" | "30" | "all"
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedDayHover, setSelectedDayHover] = useState(null);
 
-  // Manual Order Modal
-  const [showAddModal, setShowAddModal] = useState(false);
+  // Readers State
+  const [readerEmails, setReaderEmails] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem(EMAILS_STORAGE_KEY)) || [];
+    } catch {
+      return [];
+    }
+  });
+  const [newReaderEmail, setNewReaderEmail] = useState("");
+  const [readerSearch, setReaderSearch] = useState("");
+
+  // Manual Order State
   const [manualName, setManualName] = useState("");
   const [manualEmail, setManualEmail] = useState("");
-  const [modalSuccess, setModalSuccess] = useState("");
+  const [manualToast, setManualToast] = useState("");
   const [copiedId, setCopiedId] = useState(null);
 
-  // Sync back to localStorage if changed
-  const saveOrders = (newOrders) => {
-    setOrders(newOrders);
-    localStorage.setItem(ORDERS_STORAGE_KEY, JSON.stringify(newOrders));
-  };
+  // Initialize chapter form when selectedChapterId changes
+  useEffect(() => {
+    const cur = chapters.find((c) => c.id === selectedChapterId) || chapters[0];
+    if (cur) {
+      setChapterForm({
+        title: cur.title,
+        desc: cur.desc,
+        readTime: cur.readTime,
+        rawContent: convertBlocksToText(cur.blocks)
+      });
+    }
+  }, [selectedChapterId, chapters]);
+
+  // Sync settings when changed from another tab or event
+  useEffect(() => {
+    const handleSettingsUpdate = () => {
+      setSettings(getSiteSettings());
+    };
+    const handleChaptersUpdate = () => {
+      setChapters(getMergedChapters());
+    };
+    window.addEventListener("site_settings_updated", handleSettingsUpdate);
+    window.addEventListener("chapters_updated", handleChaptersUpdate);
+    return () => {
+      window.removeEventListener("site_settings_updated", handleSettingsUpdate);
+      window.removeEventListener("chapters_updated", handleChaptersUpdate);
+    };
+  }, []);
 
   const handleAdminLogin = (e) => {
     e.preventDefault();
@@ -177,7 +253,163 @@ export default function AdminPage({ navigate }) {
     sessionStorage.removeItem("ai_income_admin_authed");
   };
 
-  // Filtered orders according to mode ("all" or "live")
+  // Save Settings (Details & Pricing)
+  const handleSaveSettings = (e) => {
+    e.preventDefault();
+    saveSiteSettings(settings);
+    setSettingsSavedToast("✓ Settings updated and live across the entire website!");
+    setTimeout(() => setSettingsSavedToast(""), 3000);
+  };
+
+  // Save Single Chapter
+  const handleSaveChapter = (e) => {
+    e.preventDefault();
+    const blocks = convertTextToBlocks(chapterForm.rawContent);
+    saveSingleChapter(selectedChapterId, {
+      title: chapterForm.title.trim(),
+      desc: chapterForm.desc.trim(),
+      readTime: chapterForm.readTime.trim(),
+      blocks
+    });
+    setChapters(getMergedChapters());
+    setChapterSaveToast(`✓ Chapter ${selectedChapterId} saved successfully!`);
+    setTimeout(() => setChapterSaveToast(""), 3000);
+  };
+
+  // Reset Single Chapter
+  const handleResetChapter = () => {
+    if (window.confirm(`Reset Chapter ${selectedChapterId} to original manuscript?`)) {
+      resetChapterToDefault(selectedChapterId);
+      setChapters(getMergedChapters());
+      setChapterSaveToast(`✓ Chapter ${selectedChapterId} reset to default manuscript.`);
+      setTimeout(() => setChapterSaveToast(""), 3000);
+    }
+  };
+
+  // Reset All Chapters
+  const handleResetAllChapters = () => {
+    if (window.confirm("Are you sure you want to reset ALL 15 chapters to default manuscript text?")) {
+      resetAllChaptersToDefault();
+      setChapters(getMergedChapters());
+      setChapterSaveToast("✓ All 15 chapters restored to default.");
+      setTimeout(() => setChapterSaveToast(""), 3000);
+    }
+  };
+
+  // Manual Sale Handler
+  const handleAddManualSale = (e) => {
+    e.preventDefault();
+    if (!manualName.trim() || !manualEmail.trim() || !manualEmail.includes("@")) return;
+
+    const cleanEmail = manualEmail.trim().toLowerCase();
+    const newOrder = {
+      id: `ORD-MANUAL-${Date.now().toString(36).toUpperCase()}`,
+      name: manualName.trim(),
+      email: cleanEmail,
+      amount: Number(settings.price) || 79,
+      currency: "INR",
+      paymentMethod: `UPI (${settings.upiId} - Manual)`,
+      date: new Date().toISOString(),
+      status: "Completed",
+      type: "live"
+    };
+
+    const updatedOrders = [newOrder, ...orders];
+    setOrders(updatedOrders);
+    localStorage.setItem(ORDERS_STORAGE_KEY, JSON.stringify(updatedOrders));
+
+    // Grant access
+    try {
+      const stored = JSON.parse(localStorage.getItem(EMAILS_STORAGE_KEY)) || [];
+      if (!stored.includes(cleanEmail)) {
+        stored.push(cleanEmail);
+        localStorage.setItem(EMAILS_STORAGE_KEY, JSON.stringify(stored));
+        setReaderEmails(stored);
+      }
+    } catch {}
+
+    setManualToast(`✓ Recorded ₹${settings.price} sale & granted access to ${cleanEmail}`);
+    setManualName("");
+    setManualEmail("");
+    setTimeout(() => setManualToast(""), 3500);
+  };
+
+  // Reader Access Management
+  const handleAddReader = (e) => {
+    e.preventDefault();
+    const clean = newReaderEmail.trim().toLowerCase();
+    if (!clean || !clean.includes("@")) return;
+
+    if (!readerEmails.includes(clean)) {
+      const updated = [...readerEmails, clean];
+      setReaderEmails(updated);
+      localStorage.setItem(EMAILS_STORAGE_KEY, JSON.stringify(updated));
+      setNewReaderEmail("");
+    }
+  };
+
+  const handleRevokeReader = (emailToRevoke) => {
+    if (window.confirm(`Revoke reader access for "${emailToRevoke}"?`)) {
+      const updated = readerEmails.filter((em) => em !== emailToRevoke);
+      setReaderEmails(updated);
+      localStorage.setItem(EMAILS_STORAGE_KEY, JSON.stringify(updated));
+    }
+  };
+
+  // Export System Backup to JSON
+  const handleExportSystemBackup = () => {
+    const backupData = {
+      version: "2.0",
+      exportDate: new Date().toISOString(),
+      settings: getSiteSettings(),
+      customChapters: JSON.parse(localStorage.getItem("ai_income_custom_chapters") || "{}"),
+      orders: orders,
+      readerEmails: readerEmails
+    };
+    const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `ai_income_backup_${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Import System Backup
+  const handleImportSystemBackup = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const data = JSON.parse(event.target.result);
+        if (data.settings) {
+          saveSiteSettings(data.settings);
+          setSettings(data.settings);
+        }
+        if (data.customChapters) {
+          localStorage.setItem("ai_income_custom_chapters", JSON.stringify(data.customChapters));
+          setChapters(getMergedChapters());
+        }
+        if (data.orders) {
+          localStorage.setItem(ORDERS_STORAGE_KEY, JSON.stringify(data.orders));
+          setOrders(data.orders);
+        }
+        if (data.readerEmails) {
+          localStorage.setItem(EMAILS_STORAGE_KEY, JSON.stringify(data.readerEmails));
+          setReaderEmails(data.readerEmails);
+        }
+        alert("✓ System backup restored successfully!");
+      } catch (err) {
+        alert("Error importing backup file: Invalid JSON format.");
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  // Analytics Helpers
   const activeOrders = useMemo(() => {
     if (filterMode === "live") {
       return orders.filter((o) => o.type === "live");
@@ -185,18 +417,13 @@ export default function AdminPage({ navigate }) {
     return orders;
   }, [orders, filterMode]);
 
-  // Calculations for KPIs
   const kpis = useMemo(() => {
-    const totalRevenue = activeOrders.reduce((sum, o) => sum + (o.amount || 79), 0);
+    const totalRevenue = activeOrders.reduce((sum, o) => sum + (o.amount || Number(settings.price) || 79), 0);
     const totalSales = activeOrders.length;
-
-    // Today's orders
     const todayStr = new Date().toISOString().slice(0, 10);
     const todayOrders = activeOrders.filter((o) => o.date && o.date.slice(0, 10) === todayStr);
-    const todayIncome = todayOrders.reduce((sum, o) => sum + (o.amount || 79), 0);
+    const todayIncome = todayOrders.reduce((sum, o) => sum + (o.amount || Number(settings.price) || 79), 0);
     const todaySales = todayOrders.length;
-
-    // Unique customers
     const uniqueEmails = new Set(activeOrders.map((o) => o.email.toLowerCase()));
 
     return {
@@ -206,12 +433,10 @@ export default function AdminPage({ navigate }) {
       todaySales,
       uniqueCustomers: uniqueEmails.size
     };
-  }, [activeOrders]);
+  }, [activeOrders, settings.price]);
 
-  // Day-wise aggregation
   const daysAnalytics = useMemo(() => {
     const map = new Map();
-
     activeOrders.forEach((o) => {
       const dayKey = o.date ? o.date.slice(0, 10) : new Date().toISOString().slice(0, 10);
       if (!map.has(dayKey)) {
@@ -224,31 +449,26 @@ export default function AdminPage({ navigate }) {
       }
       const entry = map.get(dayKey);
       entry.count += 1;
-      entry.revenue += o.amount || 79;
+      entry.revenue += o.amount || Number(settings.price) || 79;
       entry.orders.push(o);
     });
 
-    // Sort descending by date
     const sorted = Array.from(map.values()).sort((a, b) => b.dateKey.localeCompare(a.dateKey));
-
-    // Limit based on dateRange
     if (dateRange === "7") return sorted.slice(0, 7);
     if (dateRange === "14") return sorted.slice(0, 14);
     if (dateRange === "30") return sorted.slice(0, 30);
     return sorted;
-  }, [activeOrders, dateRange]);
+  }, [activeOrders, dateRange, settings.price]);
 
-  // Chart data: chronological (oldest to newest)
   const chartDays = useMemo(() => {
     return [...daysAnalytics].reverse();
   }, [daysAnalytics]);
 
   const maxDailyRevenue = useMemo(() => {
     if (chartDays.length === 0) return 1;
-    return Math.max(...chartDays.map((d) => d.revenue), 79);
-  }, [chartDays]);
+    return Math.max(...chartDays.map((d) => d.revenue), Number(settings.price) || 79);
+  }, [chartDays, settings.price]);
 
-  // Filtered payments list
   const filteredPayments = useMemo(() => {
     return activeOrders.filter((o) => {
       if (!searchQuery.trim()) return true;
@@ -262,7 +482,6 @@ export default function AdminPage({ navigate }) {
     });
   }, [activeOrders, searchQuery]);
 
-  // CSV Exporter
   const handleExportCSV = () => {
     const headers = ["Order ID", "Date", "Customer Name", "Customer Email", "Amount (INR)", "Payment Method", "Status", "Order Type"];
     const rows = filteredPayments.map((o) => [
@@ -270,7 +489,7 @@ export default function AdminPage({ navigate }) {
       `"${o.date || ""}"`,
       `"${(o.name || "").replace(/"/g, '""')}"`,
       `"${o.email || ""}"`,
-      o.amount || 79,
+      o.amount || Number(settings.price) || 79,
       `"${o.paymentMethod || "UPI"}"`,
       `"${o.status || "Completed"}"`,
       `"${o.type || "live"}"`
@@ -280,61 +499,11 @@ export default function AdminPage({ navigate }) {
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", `ai_income_sales_report_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.href = url;
+    link.download = `ai_income_sales_report_${new Date().toISOString().slice(0, 10)}.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-  };
-
-  // Manual Order Handler
-  const handleAddManualOrder = (e) => {
-    e.preventDefault();
-    if (!manualName.trim() || !manualEmail.trim() || !manualEmail.includes("@")) {
-      return;
-    }
-
-    const cleanEmail = manualEmail.trim().toLowerCase();
-    const newOrder = {
-      id: `ORD-MANUAL-${Date.now().toString(36).toUpperCase()}`,
-      name: manualName.trim(),
-      email: cleanEmail,
-      amount: 79,
-      currency: "INR",
-      paymentMethod: "UPI (bhushan.shimpi1@ybl - Manual)",
-      date: new Date().toISOString(),
-      status: "Completed",
-      type: "live"
-    };
-
-    // Update orders list
-    const updated = [newOrder, ...orders];
-    saveOrders(updated);
-
-    // Grant ebook access
-    try {
-      const storedEmails = JSON.parse(localStorage.getItem(EMAILS_STORAGE_KEY)) || [];
-      if (!storedEmails.includes(cleanEmail)) {
-        storedEmails.push(cleanEmail);
-        localStorage.setItem(EMAILS_STORAGE_KEY, JSON.stringify(storedEmails));
-      }
-    } catch {}
-
-    setModalSuccess(`✓ Added ₹79 sale & granted access to ${cleanEmail}`);
-    setManualName("");
-    setManualEmail("");
-    setTimeout(() => {
-      setModalSuccess("");
-      setShowAddModal(false);
-    }, 1500);
-  };
-
-  // Reset to seed data
-  const handleResetSeedData = () => {
-    if (window.confirm("Reset dashboard data to default baseline demo records? Your live orders will be refreshed.")) {
-      const seed = generateSeedOrders();
-      saveOrders(seed);
-    }
   };
 
   const copyToClipboard = (text, id) => {
@@ -345,7 +514,6 @@ export default function AdminPage({ navigate }) {
     }
   };
 
-  // Helper date formatter
   const formatFriendlyDate = (dateStr) => {
     if (!dateStr) return "N/A";
     const d = new Date(dateStr);
@@ -367,6 +535,9 @@ export default function AdminPage({ navigate }) {
     );
   };
 
+  // UPI URL for live preview
+  const liveUpiUrl = `upi://pay?pa=${encodeURIComponent(settings.upiId)}&pn=${encodeURIComponent(settings.payeeName)}&am=${encodeURIComponent(settings.price)}&cu=INR&tn=${encodeURIComponent(settings.upiNote)}`;
+
   // AUTHENTICATION GATE
   if (!isAuthed) {
     return (
@@ -378,9 +549,9 @@ export default function AdminPage({ navigate }) {
                 <ShieldCheck size={28} />
               </div>
               <span className="eyebrow">RESTRICTED ACCESS</span>
-              <h1 style={{ fontSize: "1.85rem", margin: "6px 0" }}>Admin Dashboard</h1>
+              <h1 style={{ fontSize: "1.85rem", margin: "6px 0" }}>Admin Suite</h1>
               <p style={{ fontSize: "0.92rem", color: "var(--color-secondary)" }}>
-                Author & Sales Management Center for <b>Bhushan Shimpi</b>.
+                Author & CMS Management Portal for <b>Bhushan Shimpi</b>.
               </p>
             </div>
 
@@ -409,7 +580,7 @@ export default function AdminPage({ navigate }) {
                 className="btn-primary"
                 style={{ width: "100%", justifyContent: "center", padding: 14 }}
               >
-                <Lock size={16} /> Unlock Dashboard
+                <Lock size={16} /> Unlock Admin Panel
               </button>
 
               <div style={{ textAlign: "center", margin: "4px 0" }}>
@@ -440,545 +611,1095 @@ export default function AdminPage({ navigate }) {
     );
   }
 
-  // AUTHENTICATED DASHBOARD
-  return (
-    <div className="admin-layout animate-page">
-      {/* Top Banner / Breadcrumb */}
-      <div className="admin-header-strip">
-        <div className="container admin-header-inner">
-          <div className="admin-brand-area">
-            <div className="admin-badge-live">
-              <span className="live-dot" />
-              <span>LIVE REVENUE CENTER</span>
-            </div>
-            <h1 className="admin-title">AI Income Ebook Dashboard</h1>
-            <p className="admin-subtitle">
-              Real-time payment tracking, day-wise analytics, and reader orders for <b>bhushan.shimpi1@ybl</b>
-            </p>
-          </div>
+  // NAVIGATION TABS CONFIG
+  const navTabs = [
+    { id: "dashboard", label: "Dashboard & Sales", icon: LayoutDashboard },
+    { id: "chapters", label: "Ebook Chapter Editor", icon: BookOpen, badge: `${chapters.length}` },
+    { id: "pricing", label: "UPI & Pricing Settings", icon: CreditCard },
+    { id: "details", label: "Ebook Details & Meta", icon: FileText },
+    { id: "readers", label: "Readers & Access", icon: Users, badge: `${readerEmails.length}` },
+    { id: "manual_sale", label: "Record Manual Sale", icon: PlusCircle },
+    { id: "backup", label: "Backup & Restore", icon: Settings }
+  ];
 
-          <div className="admin-actions-bar">
-            <button
-              className="btn-secondary admin-btn"
-              onClick={() => setShowAddModal(true)}
-              title="Record an offline or direct UPI sale"
-            >
-              <Plus size={16} /> Manual Sale
-            </button>
-            <button
-              className="btn-secondary admin-btn"
-              onClick={handleExportCSV}
-              title="Export all transactions to Excel / CSV"
-            >
-              <Download size={16} /> Export CSV
-            </button>
-            <button
-              className="btn-primary admin-btn btn-accent"
-              onClick={() => navigate("chapter-1")}
-              title="Read ebook as author"
-            >
-              <ExternalLink size={16} /> View Ebook
-            </button>
-            <button
-              className="btn-secondary admin-btn"
-              onClick={handleAdminLogout}
-              title="Exit Admin Session"
-            >
-              <LogOut size={16} /> Logout
-            </button>
+  return (
+    <div className="admin-frame-root">
+      {/* MOBILE TOP BAR */}
+      <div className="admin-mobile-top-bar">
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <button
+            className="admin-sidebar-burger"
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            aria-label="Toggle admin sidebar"
+          >
+            {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
+          </button>
+          <div style={{ fontWeight: 800, fontSize: "1rem", color: "var(--color-primary)" }}>
+            AI Admin Panel
           </div>
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: "0.75rem", background: "#ECFDF5", color: "#065F46", padding: "3px 8px", borderRadius: 4, fontWeight: 700 }}>
+            ₹{settings.price} Live
+          </span>
+          <button
+            className="btn-link"
+            onClick={() => navigate("chapter-1")}
+            style={{ fontSize: "0.8rem", color: "var(--color-accent)" }}
+          >
+            Reader →
+          </button>
         </div>
       </div>
 
-      <div className="container" style={{ paddingTop: 28, paddingBottom: 60 }}>
-        {/* Dataset Switcher & Controls */}
-        <div className="admin-control-bar">
-          <div className="admin-filter-pills">
-            <button
-              className={`pill-btn ${filterMode === "all" ? "active" : ""}`}
-              onClick={() => setFilterMode("all")}
-            >
-              All Sales ({orders.length} orders)
-            </button>
-            <button
-              className={`pill-btn ${filterMode === "live" ? "active" : ""}`}
-              onClick={() => setFilterMode("live")}
-            >
-              Live Orders Only ({orders.filter((o) => o.type === "live").length})
-            </button>
-          </div>
-
-          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-            <span style={{ fontSize: "0.82rem", color: "var(--color-muted)" }}>
-              UPI ID: <b style={{ color: "var(--color-primary)" }}>bhushan.shimpi1@ybl</b> • Rate: <b>₹79/copy</b>
-            </span>
-            <button
-              className="btn-link"
-              onClick={handleResetSeedData}
-              style={{ fontSize: "0.78rem", color: "var(--color-muted)", padding: "4px 8px" }}
-              title="Reset baseline sales data"
-            >
-              <RefreshCw size={13} /> Reset Baseline
-            </button>
-          </div>
-        </div>
-
-        {/* 4 CORE METRIC CARDS */}
-        <div className="admin-stats-grid">
-          {/* 1. Total Revenue */}
-          <div className="admin-stat-card">
-            <div className="admin-stat-header">
-              <span className="admin-stat-label">TOTAL REVENUE (INCOME)</span>
-              <div className="admin-stat-icon" style={{ background: "#EEF2FF", color: "#4F46E5" }}>
-                <TrendingUp size={20} />
-              </div>
-            </div>
-            <div className="admin-stat-value">{formatINR(kpis.totalRevenue)}</div>
-            <div className="admin-stat-sub">
-              <span className="badge-positive">+100% Direct UPI</span>
-              <span>Across {kpis.totalSales} verified copies</span>
-            </div>
-          </div>
-
-          {/* 2. Total Ebook Sales */}
-          <div className="admin-stat-card">
-            <div className="admin-stat-header">
-              <span className="admin-stat-label">TOTAL EBOOKS SOLD</span>
-              <div className="admin-stat-icon" style={{ background: "#ECFDF5", color: "#059669" }}>
-                <CreditCard size={20} />
-              </div>
-            </div>
-            <div className="admin-stat-value">{kpis.totalSales} copies</div>
-            <div className="admin-stat-sub">
-              <span className="badge-neutral">₹79 / reader</span>
-              <span>All 15 chapters + prompts</span>
-            </div>
-          </div>
-
-          {/* 3. Today's Income */}
-          <div className="admin-stat-card">
-            <div className="admin-stat-header">
-              <span className="admin-stat-label">TODAY'S INCOME</span>
-              <div className="admin-stat-icon" style={{ background: "#FEF3C7", color: "#D97706" }}>
-                <Calendar size={20} />
-              </div>
-            </div>
-            <div className="admin-stat-value">{formatINR(kpis.todayIncome)}</div>
-            <div className="admin-stat-sub">
-              <span className="badge-positive">Today: {kpis.todaySales} sales</span>
-              <span>Active reader traffic</span>
-            </div>
-          </div>
-
-          {/* 4. Active Readers */}
-          <div className="admin-stat-card">
-            <div className="admin-stat-header">
-              <span className="admin-stat-label">VERIFIED READERS</span>
-              <div className="admin-stat-icon" style={{ background: "#F3E8FF", color: "#9333EA" }}>
-                <Users size={20} />
-              </div>
-            </div>
-            <div className="admin-stat-value">{kpis.uniqueCustomers}</div>
-            <div className="admin-stat-sub">
-              <span className="badge-neutral">Zero Refunds</span>
-              <span>30-Day guarantee status</span>
-            </div>
-          </div>
-        </div>
-
-        {/* DAY-WISE SALES & INCOME CHART */}
-        <div className="admin-card animate-fade-up" style={{ marginTop: 24 }}>
-          <div className="admin-card-header">
+      <div className="admin-body-container">
+        {/* SIDEBAR NAVIGATION */}
+        <aside className={`admin-sidebar-nav ${sidebarOpen ? "open" : ""}`}>
+          <div className="admin-sidebar-brand">
+            <div className="admin-brand-icon-box">AI</div>
             <div>
-              <h2 className="admin-card-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <BarChart3 size={20} color="var(--color-accent)" />
-                Day-Wise Ebook Sales & Income Breakdown
-              </h2>
-              <p className="admin-card-desc">
-                Visual daily revenue performance. Hover or tap any bar to inspect specific day results.
-              </p>
-            </div>
-
-            <div className="admin-chart-filters">
-              <button
-                className={`chart-filter-btn ${dateRange === "7" ? "active" : ""}`}
-                onClick={() => setDateRange("7")}
-              >
-                7 Days
-              </button>
-              <button
-                className={`chart-filter-btn ${dateRange === "14" ? "active" : ""}`}
-                onClick={() => setDateRange("14")}
-              >
-                14 Days
-              </button>
-              <button
-                className={`chart-filter-btn ${dateRange === "30" ? "active" : ""}`}
-                onClick={() => setDateRange("30")}
-              >
-                30 Days
-              </button>
+              <div style={{ fontWeight: 800, fontSize: "0.98rem", color: "var(--color-primary)", lineHeight: 1.2 }}>
+                Admin Suite
+              </div>
+              <div style={{ fontSize: "0.75rem", color: "var(--color-muted)" }}>
+                by Bhushan Shimpi
+              </div>
             </div>
           </div>
 
-          {/* Visual Interactive Bar Chart */}
-          <div className="admin-chart-stage">
-            {chartDays.length === 0 ? (
-              <div style={{ textAlign: "center", padding: "40px 20px", color: "var(--color-muted)" }}>
-                No sales recorded in this view.
-              </div>
-            ) : (
-              <div className="chart-bars-wrap">
-                {chartDays.map((d) => {
-                  const pct = Math.max((d.revenue / maxDailyRevenue) * 100, 10);
-                  const isToday = d.dateKey === new Date().toISOString().slice(0, 10);
-                  const isHovered = selectedDayHover?.dateKey === d.dateKey;
+          <div className="admin-sidebar-section-title">CONTROL CENTER</div>
 
-                  return (
-                    <div
-                      key={d.dateKey}
-                      className={`chart-col ${isToday ? "is-today" : ""} ${isHovered ? "is-hovered" : ""}`}
-                      onMouseEnter={() => setSelectedDayHover(d)}
-                      onClick={() => setSelectedDayHover(d)}
-                    >
-                      <div className="chart-bar-container">
-                        <div
-                          className="chart-bar-fill"
-                          style={{ height: `${pct}%` }}
-                        >
-                          <span className="chart-bar-amount">{formatINR(d.revenue)}</span>
-                        </div>
-                      </div>
-                      <div className="chart-col-label">
-                        {isToday ? "Today" : d.dateKey.slice(5)}
-                      </div>
-                      <div className="chart-col-count">{d.count} sales</div>
+          <nav className="admin-sidebar-menu">
+            {navTabs.map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  className={`admin-nav-item ${isActive ? "active" : ""}`}
+                  onClick={() => {
+                    setActiveTab(tab.id);
+                    setSidebarOpen(false);
+                  }}
+                >
+                  <Icon size={18} className="admin-nav-icon" />
+                  <span style={{ flex: 1, textAlign: "left" }}>{tab.label}</span>
+                  {tab.badge && <span className="admin-nav-badge">{tab.badge}</span>}
+                </button>
+              );
+            })}
+          </nav>
+
+          <div style={{ flex: 1 }} />
+
+          <div className="admin-sidebar-footer">
+            <div className="admin-upi-status-pill">
+              <span className="live-dot" />
+              <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <b>{settings.upiId}</b> (₹{settings.price})
+              </div>
+            </div>
+
+            <button
+              className="admin-sidebar-action-btn"
+              onClick={() => navigate("chapter-1")}
+            >
+              <ExternalLink size={15} /> Open Live Ebook
+            </button>
+            <button
+              className="admin-sidebar-action-btn"
+              onClick={() => navigate("home")}
+            >
+              <Eye size={15} /> View Public Store
+            </button>
+            <button
+              className="admin-sidebar-action-btn danger"
+              onClick={handleAdminLogout}
+            >
+              <LogOut size={15} /> Exit Admin Session
+            </button>
+          </div>
+        </aside>
+
+        {/* OVERLAY FOR MOBILE SIDEBAR */}
+        {sidebarOpen && (
+          <div
+            className="admin-sidebar-backdrop"
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
+
+        {/* MAIN WORKSPACE CONTENT */}
+        <main className="admin-workspace-pane">
+          {/* TAB 1: DASHBOARD & SALES */}
+          {activeTab === "dashboard" && (
+            <div className="animate-fade">
+              <div className="admin-pane-header">
+                <div>
+                  <h1 className="admin-pane-title">Revenue & Day-Wise Sales Analytics</h1>
+                  <p className="admin-pane-desc">
+                    Live UPI receipts tracking, daily copies sold, and customer transaction logs.
+                  </p>
+                </div>
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                  <button className="btn-secondary" onClick={handleExportCSV}>
+                    <Download size={15} /> Export CSV
+                  </button>
+                  <button className="btn-primary btn-accent" onClick={() => setActiveTab("manual_sale")}>
+                    <Plus size={15} /> Record Sale
+                  </button>
+                </div>
+              </div>
+
+              {/* Data Mode Switcher */}
+              <div className="admin-control-bar" style={{ marginTop: 20 }}>
+                <div className="admin-filter-pills">
+                  <button
+                    className={`pill-btn ${filterMode === "all" ? "active" : ""}`}
+                    onClick={() => setFilterMode("all")}
+                  >
+                    All Sales ({orders.length} records)
+                  </button>
+                  <button
+                    className={`pill-btn ${filterMode === "live" ? "active" : ""}`}
+                    onClick={() => setFilterMode("live")}
+                  >
+                    Live Orders Only ({orders.filter((o) => o.type === "live").length})
+                  </button>
+                </div>
+
+                <div style={{ fontSize: "0.82rem", color: "var(--color-muted)" }}>
+                  UPI: <b>{settings.upiId}</b> • Selling Price: <b>₹{settings.price}</b>
+                </div>
+              </div>
+
+              {/* 4 CORE KPI CARDS */}
+              <div className="admin-stats-grid" style={{ marginTop: 20 }}>
+                <div className="admin-stat-card">
+                  <div className="admin-stat-header">
+                    <span className="admin-stat-label">TOTAL INCOME (REVENUE)</span>
+                    <div className="admin-stat-icon" style={{ background: "#EEF2FF", color: "#4F46E5" }}>
+                      <TrendingUp size={20} />
                     </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+                  </div>
+                  <div className="admin-stat-value">{formatINR(kpis.totalRevenue)}</div>
+                  <div className="admin-stat-sub">
+                    <span className="badge-positive">100% Direct UPI</span>
+                    <span>{kpis.totalSales} copies sold</span>
+                  </div>
+                </div>
 
-          {/* Active / Hover Day Details Banner */}
-          <div className="chart-summary-footer">
-            <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-              <div style={{ fontSize: "0.9rem", color: "var(--color-primary)", fontWeight: 600 }}>
-                {selectedDayHover
-                  ? `Selected: ${formatFriendlyDate(selectedDayHover.dateKey)}`
-                  : `Average Daily Revenue: ${formatINR(
-                      daysAnalytics.length > 0
-                        ? Math.round(
-                            daysAnalytics.reduce((sum, d) => sum + d.revenue, 0) / daysAnalytics.length
-                          )
-                        : 0
-                    )}`}
+                <div className="admin-stat-card">
+                  <div className="admin-stat-header">
+                    <span className="admin-stat-label">TOTAL EBOOKS SOLD</span>
+                    <div className="admin-stat-icon" style={{ background: "#ECFDF5", color: "#059669" }}>
+                      <CreditCard size={20} />
+                    </div>
+                  </div>
+                  <div className="admin-stat-value">{kpis.totalSales} copies</div>
+                  <div className="admin-stat-sub">
+                    <span className="badge-neutral">₹{settings.price} per reader</span>
+                    <span>Lifetime digital access</span>
+                  </div>
+                </div>
+
+                <div className="admin-stat-card">
+                  <div className="admin-stat-header">
+                    <span className="admin-stat-label">TODAY'S INCOME</span>
+                    <div className="admin-stat-icon" style={{ background: "#FEF3C7", color: "#D97706" }}>
+                      <Calendar size={20} />
+                    </div>
+                  </div>
+                  <div className="admin-stat-value">{formatINR(kpis.todayIncome)}</div>
+                  <div className="admin-stat-sub">
+                    <span className="badge-positive">Today: {kpis.todaySales} sales</span>
+                    <span>Real-time tracker</span>
+                  </div>
+                </div>
+
+                <div className="admin-stat-card">
+                  <div className="admin-stat-header">
+                    <span className="admin-stat-label">ACTIVE READERS</span>
+                    <div className="admin-stat-icon" style={{ background: "#F3E8FF", color: "#9333EA" }}>
+                      <Users size={20} />
+                    </div>
+                  </div>
+                  <div className="admin-stat-value">{kpis.uniqueCustomers}</div>
+                  <div className="admin-stat-sub">
+                    <span className="badge-neutral">Zero Refunds</span>
+                    <span>30-Day guarantee status</span>
+                  </div>
+                </div>
               </div>
-              {selectedDayHover && (
-                <div style={{ fontSize: "0.88rem", color: "var(--color-accent)", fontWeight: 700 }}>
-                  {selectedDayHover.count} Copies Sold • {formatINR(selectedDayHover.revenue)} earned
+
+              {/* DAY-WISE SALES & INCOME CHART */}
+              <div className="admin-card" style={{ marginTop: 24 }}>
+                <div className="admin-card-header">
+                  <div>
+                    <h2 className="admin-card-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <BarChart3 size={20} color="var(--color-accent)" />
+                      Day-Wise Income & Sales Breakdown
+                    </h2>
+                    <p className="admin-card-desc">
+                      Daily revenue trend. Hover or tap any bar to see sales count and earnings.
+                    </p>
+                  </div>
+
+                  <div className="admin-chart-filters">
+                    <button
+                      className={`chart-filter-btn ${dateRange === "7" ? "active" : ""}`}
+                      onClick={() => setDateRange("7")}
+                    >
+                      7 Days
+                    </button>
+                    <button
+                      className={`chart-filter-btn ${dateRange === "14" ? "active" : ""}`}
+                      onClick={() => setDateRange("14")}
+                    >
+                      14 Days
+                    </button>
+                    <button
+                      className={`chart-filter-btn ${dateRange === "30" ? "active" : ""}`}
+                      onClick={() => setDateRange("30")}
+                    >
+                      30 Days
+                    </button>
+                  </div>
+                </div>
+
+                <div className="admin-chart-stage">
+                  <div className="chart-bars-wrap">
+                    {chartDays.map((d) => {
+                      const pct = Math.max((d.revenue / maxDailyRevenue) * 100, 10);
+                      const isToday = d.dateKey === new Date().toISOString().slice(0, 10);
+                      const isHovered = selectedDayHover?.dateKey === d.dateKey;
+
+                      return (
+                        <div
+                          key={d.dateKey}
+                          className={`chart-col ${isToday ? "is-today" : ""} ${isHovered ? "is-hovered" : ""}`}
+                          onMouseEnter={() => setSelectedDayHover(d)}
+                          onClick={() => setSelectedDayHover(d)}
+                        >
+                          <div className="chart-bar-container">
+                            <div className="chart-bar-fill" style={{ height: `${pct}%` }}>
+                              <span className="chart-bar-amount">{formatINR(d.revenue)}</span>
+                            </div>
+                          </div>
+                          <div className="chart-col-label">
+                            {isToday ? "Today" : d.dateKey.slice(5)}
+                          </div>
+                          <div className="chart-col-count">{d.count} sales</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="chart-summary-footer">
+                  <div style={{ fontSize: "0.88rem", fontWeight: 600 }}>
+                    {selectedDayHover
+                      ? `Selected: ${formatFriendlyDate(selectedDayHover.dateKey)} — ${selectedDayHover.count} Sales (${formatINR(selectedDayHover.revenue)})`
+                      : `Average Daily Income: ${formatINR(
+                          daysAnalytics.length > 0
+                            ? Math.round(daysAnalytics.reduce((sum, d) => sum + d.revenue, 0) / daysAnalytics.length)
+                            : 0
+                        )}`}
+                  </div>
+                  <span style={{ fontSize: "0.8rem", color: "var(--color-muted)" }}>
+                    Calculated at ₹{settings.price}/sale
+                  </span>
+                </div>
+              </div>
+
+              {/* DAY-WISE TABLE */}
+              <div className="admin-card" style={{ marginTop: 24 }}>
+                <div className="admin-card-header">
+                  <div>
+                    <h2 className="admin-card-title">Daily Sales Log (Day-Wise Summary)</h2>
+                    <p className="admin-card-desc">Itemized daily performance numbers.</p>
+                  </div>
+                  <div style={{ fontSize: "0.85rem", color: "var(--color-muted)" }}>
+                    Showing {daysAnalytics.length} days
+                  </div>
+                </div>
+
+                <div className="table-responsive">
+                  <table className="admin-data-table">
+                    <thead>
+                      <tr>
+                        <th>Date</th>
+                        <th>Ebooks Sold</th>
+                        <th>Day's Income (₹{settings.price}/ea)</th>
+                        <th>Payment Route</th>
+                        <th>Volume Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {daysAnalytics.map((day) => {
+                        const isToday = day.dateKey === new Date().toISOString().slice(0, 10);
+                        const isPeak = day.count >= 8;
+                        return (
+                          <tr key={day.dateKey} className={isToday ? "today-row" : ""}>
+                            <td>
+                              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                <span style={{ fontWeight: 600 }}>{formatFriendlyDate(day.dateKey)}</span>
+                                {isToday && <span className="today-chip">Today</span>}
+                              </div>
+                            </td>
+                            <td>
+                              <b>{day.count} copies</b>
+                            </td>
+                            <td>
+                              <span style={{ fontWeight: 800, color: "#059669" }}>
+                                {formatINR(day.revenue)}
+                              </span>
+                            </td>
+                            <td style={{ fontSize: "0.82rem", color: "var(--color-secondary)" }}>
+                              {settings.upiId}
+                            </td>
+                            <td>
+                              {isPeak ? (
+                                <span className="status-badge peak">🔥 High Demand</span>
+                              ) : (
+                                <span className="status-badge steady">✓ Steady</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* PAYMENTS TRANSACTIONS TABLE */}
+              <div className="admin-card" style={{ marginTop: 24 }}>
+                <div className="admin-card-header" style={{ flexWrap: "wrap", gap: 16 }}>
+                  <div>
+                    <h2 className="admin-card-title">Customer Payments & Transaction Log</h2>
+                    <p className="admin-card-desc">Individual buyer records and payment verification.</p>
+                  </div>
+                  <div className="admin-search-wrap">
+                    <Search size={16} className="search-icon" />
+                    <input
+                      type="text"
+                      className="admin-search-input"
+                      placeholder="Search by customer name, email, or order ID..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                    {searchQuery && (
+                      <button className="search-clear-btn" onClick={() => setSearchQuery("")}>✕</button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="table-responsive">
+                  <table className="admin-data-table">
+                    <thead>
+                      <tr>
+                        <th>Order ID</th>
+                        <th>Customer</th>
+                        <th>Amount</th>
+                        <th>UPI Target</th>
+                        <th>Timestamp</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredPayments.slice(0, 50).map((order) => {
+                        const isLive = order.type === "live";
+                        return (
+                          <tr key={order.id} className={isLive ? "live-order-row" : ""}>
+                            <td>
+                              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                <span style={{ fontFamily: "monospace", fontSize: "0.82rem", fontWeight: 600 }}>
+                                  {order.id}
+                                </span>
+                                <button
+                                  className="copy-btn-tiny"
+                                  onClick={() => copyToClipboard(order.id, order.id)}
+                                >
+                                  {copiedId === order.id ? <Check size={12} color="#059669" /> : <Copy size={12} />}
+                                </button>
+                              </div>
+                              {isLive && <span className="live-pill">LIVE SALE</span>}
+                            </td>
+                            <td>
+                              <div style={{ fontWeight: 600 }}>{order.name}</div>
+                              <div style={{ fontSize: "0.8rem", color: "var(--color-muted)" }}>{order.email}</div>
+                            </td>
+                            <td>
+                              <b style={{ color: "#059669" }}>₹{order.amount || settings.price}</b>
+                            </td>
+                            <td style={{ fontSize: "0.82rem", color: "var(--color-secondary)" }}>
+                              {settings.upiId}
+                            </td>
+                            <td style={{ fontSize: "0.85rem", color: "var(--color-secondary)" }}>
+                              {formatFriendlyDate(order.date)}
+                            </td>
+                            <td>
+                              <span className="status-badge success">
+                                <CheckCircle size={12} /> Completed
+                              </span>
+                            </td>
+                            <td>
+                              <button
+                                className="btn-secondary"
+                                style={{ padding: "4px 8px", fontSize: "0.78rem" }}
+                                onClick={() => copyToClipboard(order.email, `email-${order.id}`)}
+                              >
+                                {copiedId === `email-${order.id}` ? "Copied" : "Copy Email"}
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 2: EBOOK CHAPTER EDITOR */}
+          {activeTab === "chapters" && (
+            <div className="animate-fade">
+              <div className="admin-pane-header">
+                <div>
+                  <h1 className="admin-pane-title">Ebook Chapters & Content Editor</h1>
+                  <p className="admin-pane-desc">
+                    Modify title, reading time, summary description, and paragraph text for each of the 15 chapters. Changes apply instantly to the public digital reader!
+                  </p>
+                </div>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button className="btn-secondary" onClick={handleResetAllChapters} title="Restore manuscript">
+                    <RotateCcw size={15} /> Reset All to Default
+                  </button>
+                </div>
+              </div>
+
+              {chapterSaveToast && (
+                <div className="auth-message success" style={{ marginTop: 16 }}>
+                  <Check size={18} />
+                  <div>{chapterSaveToast}</div>
                 </div>
               )}
-            </div>
 
-            <span style={{ fontSize: "0.8rem", color: "var(--color-muted)" }}>
-              Data grouped by IST Date (00:00 - 23:59)
-            </span>
-          </div>
-        </div>
+              {/* CHAPTER PICKER BAR */}
+              <div className="admin-chapter-selector-strip" style={{ marginTop: 20 }}>
+                {chapters.map((ch) => (
+                  <button
+                    key={ch.id}
+                    className={`admin-chapter-tab ${selectedChapterId === ch.id ? "active" : ""}`}
+                    onClick={() => {
+                      setSelectedChapterId(ch.id);
+                      setChapterPreviewMode(false);
+                    }}
+                  >
+                    <span className="ch-tab-num">{ch.id === 1 ? "Intro" : `Ch ${ch.id - 1}`}</span>
+                    <span className="ch-tab-title">{ch.title.split("—")[0].replace("Chapter ", "Ch ")}</span>
+                    {ch.isCustomized && <span className="ch-tab-edited" title="Customized by Author">•</span>}
+                  </button>
+                ))}
+              </div>
 
-        {/* DAY-WISE SUMMARY TABLE */}
-        <div className="admin-card animate-fade-up" style={{ marginTop: 24 }}>
-          <div className="admin-card-header">
-            <div>
-              <h2 className="admin-card-title">Daily Sales Log (Days-Wise Table)</h2>
-              <p className="admin-card-desc">
-                Itemized breakdown per day including copies sold, daily income, and volume category.
-              </p>
-            </div>
-            <div style={{ fontSize: "0.85rem", color: "var(--color-muted)" }}>
-              Showing {daysAnalytics.length} days
-            </div>
-          </div>
+              {/* CHAPTER EDIT FORM */}
+              <div className="admin-card" style={{ marginTop: 20 }}>
+                <div className="admin-card-header">
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <div className="brand-icon" style={{ width: 28, height: 28, fontSize: "0.8rem" }}>
+                      {selectedChapterId}
+                    </div>
+                    <div>
+                      <h2 className="admin-card-title" style={{ margin: 0 }}>
+                        Editing: Chapter {selectedChapterId} of 15
+                      </h2>
+                      <span style={{ fontSize: "0.8rem", color: "var(--color-muted)" }}>
+                        {chapters.find((c) => c.id === selectedChapterId)?.isCustomized ? "Customized by author" : "Default manuscript content"}
+                      </span>
+                    </div>
+                  </div>
 
-          <div className="table-responsive">
-            <table className="admin-data-table">
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Ebooks Sold</th>
-                  <th>Day's Income (₹79/ea)</th>
-                  <th>Payment Route</th>
-                  <th>Volume Category</th>
-                </tr>
-              </thead>
-              <tbody>
-                {daysAnalytics.map((day) => {
-                  const isToday = day.dateKey === new Date().toISOString().slice(0, 10);
-                  const isPeak = day.count >= 8;
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button
+                      type="button"
+                      className={`pill-btn ${!chapterPreviewMode ? "active" : ""}`}
+                      onClick={() => setChapterPreviewMode(false)}
+                    >
+                      <Edit3 size={13} style={{ marginRight: 4 }} /> Editor
+                    </button>
+                    <button
+                      type="button"
+                      className={`pill-btn ${chapterPreviewMode ? "active" : ""}`}
+                      onClick={() => setChapterPreviewMode(true)}
+                    >
+                      <Eye size={13} style={{ marginRight: 4 }} /> Live Preview
+                    </button>
+                  </div>
+                </div>
 
-                  return (
-                    <tr key={day.dateKey} className={isToday ? "today-row" : ""}>
-                      <td>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                          <span style={{ fontWeight: 600 }}>{formatFriendlyDate(day.dateKey)}</span>
-                          {isToday && <span className="today-chip">Today</span>}
-                        </div>
-                      </td>
-                      <td>
-                        <span style={{ fontWeight: 700, color: "var(--color-primary)" }}>
-                          {day.count} {day.count === 1 ? "copy" : "copies"}
+                {!chapterPreviewMode ? (
+                  <form onSubmit={handleSaveChapter} style={{ padding: "24px", display: "flex", flexDirection: "column", gap: 18 }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 140px", gap: 16 }}>
+                      <div className="form-group">
+                        <label>Chapter Title *</label>
+                        <input
+                          type="text"
+                          className="form-input"
+                          value={chapterForm.title}
+                          onChange={(e) => setChapterForm({ ...chapterForm, title: e.target.value })}
+                          required
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label>Reading Time *</label>
+                        <input
+                          type="text"
+                          className="form-input"
+                          value={chapterForm.readTime}
+                          onChange={(e) => setChapterForm({ ...chapterForm, readTime: e.target.value })}
+                          placeholder="e.g. 5 min"
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div className="form-group">
+                      <label>Chapter Overview / Short Description (Shows on chapter list & directory)</label>
+                      <textarea
+                        className="form-input"
+                        rows={2}
+                        value={chapterForm.desc}
+                        onChange={(e) => setChapterForm({ ...chapterForm, desc: e.target.value })}
+                        placeholder="Brief summary of what readers learn in this chapter..."
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
+                        <label style={{ margin: 0 }}>Chapter Full Content (Paragraphs, Headings & Prompts) *</label>
+                        <span style={{ fontSize: "0.78rem", color: "var(--color-muted)" }}>
+                          Separate paragraphs with blank lines. Prefix with <code>### </code> for headings, <code>- </code> for bullet points.
                         </span>
-                      </td>
-                      <td>
-                        <span style={{ fontWeight: 800, color: "#059669", fontSize: "0.98rem" }}>
-                          {formatINR(day.revenue)}
-                        </span>
-                      </td>
-                      <td>
-                        <span style={{ fontSize: "0.82rem", color: "var(--color-secondary)" }}>
-                          UPI (bhushan.shimpi1@ybl)
-                        </span>
-                      </td>
-                      <td>
-                        {isPeak ? (
-                          <span className="status-badge peak">🔥 High Demand</span>
-                        ) : (
-                          <span className="status-badge steady">✓ Steady</span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-              <tfoot>
-                <tr className="table-total-row">
-                  <td><b>Totals for Selected Period</b></td>
-                  <td>
-                    <b>{daysAnalytics.reduce((sum, d) => sum + d.count, 0)} copies</b>
-                  </td>
-                  <td>
-                    <b style={{ color: "#059669", fontSize: "1.05rem" }}>
-                      {formatINR(daysAnalytics.reduce((sum, d) => sum + d.revenue, 0))}
-                    </b>
-                  </td>
-                  <td colSpan={2}>100% Direct to Bhushan Shimpi (UPI)</td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-        </div>
+                      </div>
+                      <textarea
+                        className="form-input"
+                        rows={16}
+                        style={{ fontFamily: "inherit", fontSize: "0.95rem", lineHeight: 1.6 }}
+                        value={chapterForm.rawContent}
+                        onChange={(e) => setChapterForm({ ...chapterForm, rawContent: e.target.value })}
+                        required
+                      />
+                    </div>
 
-        {/* PAYMENTS & RECENT TRANSACTIONS TABLE */}
-        <div className="admin-card animate-fade-up" style={{ marginTop: 24 }}>
-          <div className="admin-card-header" style={{ flexWrap: "wrap", gap: 16 }}>
-            <div>
-              <h2 className="admin-card-title">Recent Payments & Transaction History</h2>
-              <p className="admin-card-desc">
-                Real-time ledger of individual orders, buyer contact details, and UPI fulfillment status.
-              </p>
-            </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 12, borderTop: "1px solid var(--color-border)", flexWrap: "wrap", gap: 10 }}>
+                      <div style={{ display: "flex", gap: 10 }}>
+                        <button type="submit" className="btn-primary btn-accent" style={{ padding: "10px 20px" }}>
+                          <Save size={16} /> Save Chapter Changes
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-secondary"
+                          onClick={() => navigate(`chapter-${selectedChapterId}`)}
+                        >
+                          <ExternalLink size={16} /> View in Live Reader
+                        </button>
+                      </div>
 
-            {/* Search Box */}
-            <div className="admin-search-wrap">
-              <Search size={16} className="search-icon" />
-              <input
-                type="text"
-                className="admin-search-input"
-                placeholder="Search by name, email, or order ID..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-              {searchQuery && (
-                <button
-                  className="search-clear-btn"
-                  onClick={() => setSearchQuery("")}
-                >
-                  ✕
-                </button>
-              )}
-            </div>
-          </div>
-
-          <div className="table-responsive">
-            <table className="admin-data-table">
-              <thead>
-                <tr>
-                  <th>Order ID</th>
-                  <th>Customer</th>
-                  <th>Amount</th>
-                  <th>Payment Route</th>
-                  <th>Timestamp</th>
-                  <th>Status</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredPayments.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} style={{ textAlign: "center", padding: "36px 12px", color: "var(--color-muted)" }}>
-                      No payments found matching "{searchQuery}".
-                    </td>
-                  </tr>
+                      <button
+                        type="button"
+                        className="btn-link"
+                        onClick={handleResetChapter}
+                        style={{ color: "#DC2626", fontSize: "0.85rem" }}
+                      >
+                        <RotateCcw size={14} /> Reset This Chapter to Original
+                      </button>
+                    </div>
+                  </form>
                 ) : (
-                  filteredPayments.slice(0, 50).map((order) => {
-                    const isNewLive = order.type === "live";
+                  <div style={{ padding: "30px 24px" }}>
+                    <div style={{ maxWidth: 720, margin: "0 auto", background: "#FFFFFF", padding: 24, border: "1px solid var(--color-border)", borderRadius: "var(--radius-md)" }}>
+                      <span className="eyebrow">PREVIEW • CHAPTER {selectedChapterId}</span>
+                      <h1 style={{ fontSize: "1.8rem", margin: "10px 0" }}>{chapterForm.title}</h1>
+                      <div style={{ fontSize: "0.85rem", color: "var(--color-muted)", marginBottom: 20 }}>
+                        Estimated Read Time: {chapterForm.readTime}
+                      </div>
 
-                    return (
-                      <tr key={order.id} className={isNewLive ? "live-order-row" : ""}>
-                        <td>
-                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                            <span style={{ fontFamily: "monospace", fontSize: "0.82rem", fontWeight: 600 }}>
-                              {order.id}
-                            </span>
-                            <button
-                              className="copy-btn-tiny"
-                              onClick={() => copyToClipboard(order.id, order.id)}
-                              title="Copy Order ID"
-                            >
-                              {copiedId === order.id ? <Check size={12} color="#059669" /> : <Copy size={12} />}
-                            </button>
-                          </div>
-                          {isNewLive && <span className="live-pill">LIVE SALE</span>}
-                        </td>
-                        <td>
-                          <div style={{ fontWeight: 600, color: "var(--color-primary)" }}>{order.name}</div>
-                          <div style={{ fontSize: "0.8rem", color: "var(--color-muted)" }}>{order.email}</div>
-                        </td>
-                        <td>
-                          <span style={{ fontWeight: 800, color: "#059669", fontSize: "0.98rem" }}>
-                            ₹{order.amount || 79}
-                          </span>
-                        </td>
-                        <td>
-                          <div style={{ fontSize: "0.82rem", color: "var(--color-secondary)" }}>
-                            bhushan.shimpi1@ybl
-                          </div>
-                        </td>
-                        <td>
-                          <div style={{ fontSize: "0.85rem", color: "var(--color-secondary)" }}>
-                            {formatFriendlyDate(order.date)}
-                          </div>
-                          <div style={{ fontSize: "0.75rem", color: "var(--color-muted)" }}>
-                            {order.date ? new Date(order.date).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }) : ""}
-                          </div>
-                        </td>
-                        <td>
-                          <span className="status-badge success">
-                            <CheckCircle size={12} /> Completed
-                          </span>
-                        </td>
-                        <td>
-                          <button
-                            className="btn-secondary"
-                            style={{ padding: "4px 8px", fontSize: "0.78rem" }}
-                            onClick={() => copyToClipboard(order.email, `email-${order.id}`)}
-                            title="Copy customer email"
-                          >
-                            {copiedId === `email-${order.id}` ? "Copied" : "Copy Email"}
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })
+                      <div className="reader-article">
+                        {convertTextToBlocks(chapterForm.rawContent).map((b, i) => {
+                          if (b.type === "heading") return <h3 key={i} style={{ marginTop: 24, marginBottom: 12 }}>{b.text}</h3>;
+                          if (b.type === "bullet") return <li key={i} style={{ marginLeft: 20, marginBottom: 6 }}>{b.text}</li>;
+                          if (b.type === "number") return <li key={i} style={{ marginLeft: 20, marginBottom: 6 }}><b>{b.text}</b></li>;
+                          return <p key={i} style={{ marginBottom: 16, lineHeight: 1.7 }}>{b.text}</p>;
+                        })}
+                      </div>
+                    </div>
+                  </div>
                 )}
-              </tbody>
-            </table>
-          </div>
-
-          <div style={{ padding: "14px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid var(--color-border)", fontSize: "0.85rem", color: "var(--color-muted)", flexWrap: "wrap", gap: 10 }}>
-            <span>
-              Showing {Math.min(filteredPayments.length, 50)} of {filteredPayments.length} total orders
-            </span>
-            <button className="btn-link" onClick={handleExportCSV} style={{ fontSize: "0.85rem" }}>
-              <Download size={14} /> Download complete history as CSV
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* MANUAL SALE MODAL */}
-      {showAddModal && (
-        <div className="admin-modal-overlay" onClick={() => setShowAddModal(false)}>
-          <div className="admin-modal-box animate-fade-up" onClick={(e) => e.stopPropagation()}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-              <h3 style={{ margin: 0, fontSize: "1.25rem" }}>Record Manual UPI Sale</h3>
-              <button
-                className="btn-link"
-                onClick={() => setShowAddModal(false)}
-                style={{ fontSize: "1.2rem", color: "var(--color-muted)" }}
-              >
-                ✕
-              </button>
+              </div>
             </div>
+          )}
 
-            <p style={{ fontSize: "0.88rem", color: "var(--color-secondary)", marginBottom: 18 }}>
-              Use this to record a direct UPI payment (WhatsApp / Telegram / Cash) of ₹79 and instantly grant the reader ebook access.
-            </p>
-
-            {modalSuccess && (
-              <div className="auth-message success" style={{ marginBottom: 16 }}>
-                <Check size={18} />
-                <div>{modalSuccess}</div>
-              </div>
-            )}
-
-            <form onSubmit={handleAddManualOrder} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              <div className="form-group">
-                <label>Customer Full Name *</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  placeholder="e.g. Ramesh Kumar"
-                  value={manualName}
-                  onChange={(e) => setManualName(e.target.value)}
-                  required
-                />
+          {/* TAB 3: PRICING & UPI SETTINGS */}
+          {activeTab === "pricing" && (
+            <div className="animate-fade">
+              <div className="admin-pane-header">
+                <div>
+                  <h1 className="admin-pane-title">Payment & Pricing Configuration</h1>
+                  <p className="admin-pane-desc">
+                    Update your receiving UPI ID, ebook selling price in ₹, and payment note. Changes update all checkout QR codes, intent links, and site prices immediately.
+                  </p>
+                </div>
               </div>
 
-              <div className="form-group">
-                <label>Customer Email Address *</label>
-                <input
-                  type="email"
-                  className="form-input"
-                  placeholder="e.g. ramesh@gmail.com"
-                  value={manualEmail}
-                  onChange={(e) => setManualEmail(e.target.value)}
-                  required
-                />
+              {settingsSavedToast && (
+                <div className="auth-message success" style={{ marginTop: 16 }}>
+                  <Check size={18} />
+                  <div>{settingsSavedToast}</div>
+                </div>
+              )}
+
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 24, marginTop: 24 }}>
+                {/* Form Card */}
+                <div className="admin-card">
+                  <div className="admin-card-header">
+                    <h2 className="admin-card-title">UPI & Pricing Details</h2>
+                  </div>
+
+                  <form onSubmit={handleSaveSettings} style={{ padding: "24px", display: "flex", flexDirection: "column", gap: 16 }}>
+                    <div className="form-group">
+                      <label>Receiving UPI ID * (Where payments are sent)</label>
+                      <input
+                        type="text"
+                        className="form-input"
+                        value={settings.upiId}
+                        onChange={(e) => setSettings({ ...settings, upiId: e.target.value.trim() })}
+                        placeholder="e.g. bhushan.shimpi1@ybl"
+                        required
+                      />
+                      <span style={{ fontSize: "0.8rem", color: "var(--color-muted)" }}>
+                        Current active UPI handle: <b>{settings.upiId}</b>
+                      </span>
+                    </div>
+
+                    <div className="form-group">
+                      <label>Payee Name * (Displays on GPay / PhonePe / Paytm)</label>
+                      <input
+                        type="text"
+                        className="form-input"
+                        value={settings.payeeName}
+                        onChange={(e) => setSettings({ ...settings, payeeName: e.target.value })}
+                        placeholder="e.g. Bhushan Shimpi"
+                        required
+                      />
+                    </div>
+
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                      <div className="form-group">
+                        <label>Selling Price (INR ₹) *</label>
+                        <input
+                          type="number"
+                          min="1"
+                          className="form-input"
+                          value={settings.price}
+                          onChange={(e) => setSettings({ ...settings, price: Number(e.target.value) || 79 })}
+                          required
+                        />
+                      </div>
+
+                      <div className="form-group">
+                        <label>Regular / Strikethrough Price (₹)</label>
+                        <input
+                          type="number"
+                          min="1"
+                          className="form-input"
+                          value={settings.originalPrice}
+                          onChange={(e) => setSettings({ ...settings, originalPrice: Number(e.target.value) || 499 })}
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div className="form-group">
+                      <label>UPI Transaction Note *</label>
+                      <input
+                        type="text"
+                        className="form-input"
+                        value={settings.upiNote}
+                        onChange={(e) => setSettings({ ...settings, upiNote: e.target.value })}
+                        placeholder="e.g. AI Income Ebook - Bhushan Shimpi"
+                        required
+                      />
+                    </div>
+
+                    <div style={{ paddingTop: 10 }}>
+                      <button type="submit" className="btn-primary btn-accent" style={{ width: "100%", justifyContent: "center", padding: 14 }}>
+                        <Save size={16} /> Save Pricing & UPI Settings
+                      </button>
+                    </div>
+                  </form>
+                </div>
+
+                {/* Live QR Code & Link Preview */}
+                <div className="admin-card">
+                  <div className="admin-card-header">
+                    <h2 className="admin-card-title">Live QR Code & Intent Preview</h2>
+                    <span style={{ fontSize: "0.78rem", background: "#ECFDF5", color: "#065F46", padding: "3px 8px", borderRadius: 4, fontWeight: 700 }}>
+                      Interactive Test
+                    </span>
+                  </div>
+
+                  <div style={{ padding: "24px", display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: 16 }}>
+                    <div style={{ padding: 16, background: "#FFFFFF", border: "2px solid var(--color-border)", borderRadius: "var(--radius-lg)", boxShadow: "0 4px 12px rgba(0,0,0,0.06)" }}>
+                      <QRCodeSVG
+                        value={liveUpiUrl}
+                        size={180}
+                        level="M"
+                        includeMargin={true}
+                      />
+                    </div>
+
+                    <div>
+                      <div style={{ fontWeight: 800, fontSize: "1.4rem", color: "#059669" }}>
+                        ₹{settings.price}
+                      </div>
+                      <div style={{ fontSize: "0.9rem", color: "var(--color-primary)", fontWeight: 600 }}>
+                        {settings.payeeName}
+                      </div>
+                      <div style={{ fontSize: "0.85rem", color: "var(--color-secondary)" }}>
+                        {settings.upiId}
+                      </div>
+                    </div>
+
+                    <div style={{ padding: 12, background: "var(--color-bg-soft)", borderRadius: "var(--radius-md)", width: "100%", textAlign: "left", fontSize: "0.8rem", color: "var(--color-secondary)", wordBreak: "break-all" }}>
+                      <b>Live UPI URL:</b>
+                      <div style={{ marginTop: 4, fontFamily: "monospace" }}>{liveUpiUrl}</div>
+                    </div>
+
+                    <a
+                      href={liveUpiUrl}
+                      className="btn-secondary"
+                      style={{ width: "100%", justifyContent: "center" }}
+                    >
+                      Test UPI Intent Link
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 4: EBOOK DETAILS & META */}
+          {activeTab === "details" && (
+            <div className="animate-fade">
+              <div className="admin-pane-header">
+                <div>
+                  <h1 className="admin-pane-title">Ebook Details & Author Metadata</h1>
+                  <p className="admin-pane-desc">
+                    Customize the public book title, subtitle, author name, tagline, and support contact.
+                  </p>
+                </div>
               </div>
 
-              <div className="form-group">
-                <label>Payment Amount</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  value="₹79 (Fixed Ebook Price)"
-                  disabled
-                  style={{ background: "var(--color-bg-soft)" }}
-                />
+              {settingsSavedToast && (
+                <div className="auth-message success" style={{ marginTop: 16 }}>
+                  <Check size={18} />
+                  <div>{settingsSavedToast}</div>
+                </div>
+              )}
+
+              <div className="admin-card" style={{ marginTop: 24, maxWidth: 740 }}>
+                <form onSubmit={handleSaveSettings} style={{ padding: "24px", display: "flex", flexDirection: "column", gap: 16 }}>
+                  <div className="form-group">
+                    <label>Ebook Main Title *</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      value={settings.bookTitle}
+                      onChange={(e) => setSettings({ ...settings, bookTitle: e.target.value })}
+                      required
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Ebook Subtitle *</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      value={settings.bookSubtitle}
+                      onChange={(e) => setSettings({ ...settings, bookSubtitle: e.target.value })}
+                      required
+                    />
+                  </div>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                    <div className="form-group">
+                      <label>Author Full Name *</label>
+                      <input
+                        type="text"
+                        className="form-input"
+                        value={settings.authorName}
+                        onChange={(e) => setSettings({ ...settings, authorName: e.target.value })}
+                        required
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label>Support Contact Email *</label>
+                      <input
+                        type="email"
+                        className="form-input"
+                        value={settings.supportEmail}
+                        onChange={(e) => setSettings({ ...settings, supportEmail: e.target.value })}
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="form-group">
+                    <label>Tagline / Book Description *</label>
+                    <textarea
+                      className="form-input"
+                      rows={3}
+                      value={settings.tagline}
+                      onChange={(e) => setSettings({ ...settings, tagline: e.target.value })}
+                      required
+                    />
+                  </div>
+
+                  <div style={{ paddingTop: 12, borderTop: "1px solid var(--color-border)" }}>
+                    <button type="submit" className="btn-primary btn-accent" style={{ padding: "12px 24px" }}>
+                      <Save size={16} /> Save Ebook Details
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 5: READERS & ACCESS CONTROL */}
+          {activeTab === "readers" && (
+            <div className="animate-fade">
+              <div className="admin-pane-header">
+                <div>
+                  <h1 className="admin-pane-title">Reader Accounts & Access Management</h1>
+                  <p className="admin-pane-desc">
+                    View all customer emails with active lifetime access, grant free/VIP access, or revoke permissions.
+                  </p>
+                </div>
               </div>
 
-              <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
-                <button
-                  type="submit"
-                  className="btn-primary btn-accent"
-                  style={{ flex: 1, justifyContent: "center" }}
-                >
-                  <Plus size={16} /> Record Sale & Grant Access
-                </button>
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={() => setShowAddModal(false)}
-                >
-                  Cancel
-                </button>
+              {/* Add Reader Card */}
+              <div className="admin-card" style={{ marginTop: 20 }}>
+                <div style={{ padding: "20px 24px" }}>
+                  <form onSubmit={handleAddReader} style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+                    <div style={{ flex: 1, minWidth: 260 }}>
+                      <input
+                        type="email"
+                        className="form-input"
+                        placeholder="Enter reader email address (e.g. reader@gmail.com)..."
+                        value={newReaderEmail}
+                        onChange={(e) => setNewReaderEmail(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <button type="submit" className="btn-primary btn-accent">
+                      <Plus size={16} /> Grant Lifetime Access
+                    </button>
+                  </form>
+                </div>
               </div>
-            </form>
-          </div>
-        </div>
-      )}
+
+              {/* Readers List Table */}
+              <div className="admin-card" style={{ marginTop: 24 }}>
+                <div className="admin-card-header" style={{ flexWrap: "wrap", gap: 14 }}>
+                  <div>
+                    <h2 className="admin-card-title">Active Readers Directory ({readerEmails.length})</h2>
+                    <p className="admin-card-desc">All verified accounts eligible to read all 15 chapters.</p>
+                  </div>
+
+                  <div className="admin-search-wrap">
+                    <Search size={16} className="search-icon" />
+                    <input
+                      type="text"
+                      className="admin-search-input"
+                      placeholder="Filter readers by email..."
+                      value={readerSearch}
+                      onChange={(e) => setReaderSearch(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className="table-responsive">
+                  <table className="admin-data-table">
+                    <thead>
+                      <tr>
+                        <th>#</th>
+                        <th>Reader Email</th>
+                        <th>Access Level</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {readerEmails
+                        .filter((em) => em.toLowerCase().includes(readerSearch.toLowerCase()))
+                        .map((email, idx) => (
+                          <tr key={email}>
+                            <td style={{ color: "var(--color-muted)" }}>{idx + 1}</td>
+                            <td>
+                              <div style={{ fontWeight: 600, color: "var(--color-primary)" }}>{email}</div>
+                              {AUTHOR_EMAILS.includes(email.toLowerCase()) && (
+                                <span style={{ fontSize: "0.72rem", background: "#EEF2FF", color: "#4F46E5", padding: "2px 6px", borderRadius: 4, fontWeight: 700 }}>
+                                  Author / Owner
+                                </span>
+                              )}
+                            </td>
+                            <td>All 15 Chapters + Prompts</td>
+                            <td>
+                              <span className="status-badge success">
+                                <Check size={12} /> Active
+                              </span>
+                            </td>
+                            <td>
+                              <button
+                                className="btn-link"
+                                style={{ color: "#DC2626", fontSize: "0.82rem" }}
+                                onClick={() => handleRevokeReader(email)}
+                              >
+                                Revoke Access
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 6: MANUAL SALE ENTRY */}
+          {activeTab === "manual_sale" && (
+            <div className="animate-fade">
+              <div className="admin-pane-header">
+                <div>
+                  <h1 className="admin-pane-title">Record Direct / Offline Sale</h1>
+                  <p className="admin-pane-desc">
+                    Record a sale made outside the website (via WhatsApp, Telegram, or cash) for ₹{settings.price} and immediately grant reader access.
+                  </p>
+                </div>
+              </div>
+
+              {manualToast && (
+                <div className="auth-message success" style={{ marginTop: 16 }}>
+                  <Check size={18} />
+                  <div>{manualToast}</div>
+                </div>
+              )}
+
+              <div className="admin-card" style={{ marginTop: 24, maxWidth: 540 }}>
+                <form onSubmit={handleAddManualSale} style={{ padding: "24px", display: "flex", flexDirection: "column", gap: 16 }}>
+                  <div className="form-group">
+                    <label>Customer Full Name *</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      placeholder="e.g. Ramesh Kumar"
+                      value={manualName}
+                      onChange={(e) => setManualName(e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Customer Email Address *</label>
+                    <input
+                      type="email"
+                      className="form-input"
+                      placeholder="e.g. ramesh@gmail.com"
+                      value={manualEmail}
+                      onChange={(e) => setManualEmail(e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>Sale Amount (INR)</label>
+                    <input
+                      type="text"
+                      className="form-input"
+                      value={`₹${settings.price} (Configured Selling Price)`}
+                      disabled
+                      style={{ background: "var(--color-bg-soft)" }}
+                    />
+                  </div>
+
+                  <div style={{ paddingTop: 10 }}>
+                    <button type="submit" className="btn-primary btn-accent" style={{ width: "100%", justifyContent: "center", padding: 14 }}>
+                      <PlusCircle size={16} /> Record ₹{settings.price} Sale & Unlock Ebook
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 7: BACKUP & RESTORE */}
+          {activeTab === "backup" && (
+            <div className="animate-fade">
+              <div className="admin-pane-header">
+                <div>
+                  <h1 className="admin-pane-title">System Backup & Data Operations</h1>
+                  <p className="admin-pane-desc">
+                    Export your custom chapter edits, site settings, and orders into an offline JSON backup file, or restore from an earlier backup.
+                  </p>
+                </div>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 20, marginTop: 24 }}>
+                <div className="admin-card">
+                  <div className="admin-card-header">
+                    <h2 className="admin-card-title">Export Full System Backup</h2>
+                  </div>
+                  <div style={{ padding: "24px", display: "flex", flexDirection: "column", gap: 16 }}>
+                    <p style={{ fontSize: "0.88rem", color: "var(--color-secondary)", margin: 0 }}>
+                      Downloads all 15 customized chapters, current pricing settings, active readers, and transaction logs in one portable <code>.json</code> file.
+                    </p>
+                    <button className="btn-primary" onClick={handleExportSystemBackup}>
+                      <Download size={16} /> Download Backup (.json)
+                    </button>
+                  </div>
+                </div>
+
+                <div className="admin-card">
+                  <div className="admin-card-header">
+                    <h2 className="admin-card-title">Restore from Backup</h2>
+                  </div>
+                  <div style={{ padding: "24px", display: "flex", flexDirection: "column", gap: 16 }}>
+                    <p style={{ fontSize: "0.88rem", color: "var(--color-secondary)", margin: 0 }}>
+                      Select a previously downloaded <code>.json</code> backup to restore all chapters, pricing, and orders.
+                    </p>
+                    <label className="btn-secondary" style={{ cursor: "pointer", justifyContent: "center" }}>
+                      <Upload size={16} /> Choose Backup File (.json)
+                      <input
+                        type="file"
+                        accept=".json"
+                        style={{ display: "none" }}
+                        onChange={handleImportSystemBackup}
+                      />
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </main>
+      </div>
     </div>
   );
 }

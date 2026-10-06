@@ -2842,3 +2842,304 @@ p {
     min-width: 100%;
   }
 }
+
+/* ==========================================================================
+   ADMIN SIDEBAR & CMS WORKSPACE STYLES
+   ========================================================================== */
+.admin-frame-root {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background-color: #F8FAFC;
+}
+
+.admin-mobile-top-bar {
+  display: none;
+  background: #FFFFFF;
+  border-bottom: 1px solid var(--color-border);
+  padding: 12px 16px;
+  justify-content: space-between;
+  align-items: center;
+  position: sticky;
+  top: 72px;
+  z-index: 100;
+}
+
+.admin-sidebar-burger {
+  background: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--color-primary);
+}
+
+.admin-body-container {
+  display: flex;
+  flex: 1;
+  position: relative;
+}
+
+.admin-sidebar-nav {
+  width: 270px;
+  min-width: 270px;
+  background: #FFFFFF;
+  border-right: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  padding: 24px 16px;
+  position: sticky;
+  top: 72px;
+  height: calc(100vh - 72px);
+  overflow-y: auto;
+  z-index: 101;
+  transition: transform 0.25s var(--ease-spring);
+}
+
+.admin-sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+  padding: 0 4px;
+}
+
+.admin-brand-icon-box {
+  width: 36px;
+  height: 36px;
+  background: linear-gradient(135deg, var(--color-accent) 0%, #312E81 100%);
+  color: #FFFFFF;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 0.95rem;
+  letter-spacing: -0.03em;
+  box-shadow: 0 4px 10px rgba(79, 70, 229, 0.25);
+}
+
+.admin-sidebar-section-title {
+  font-size: 0.68rem;
+  font-weight: 800;
+  color: var(--color-muted);
+  letter-spacing: 0.08em;
+  margin-bottom: 8px;
+  padding: 0 8px;
+}
+
+.admin-sidebar-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.admin-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--color-secondary);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  width: 100%;
+}
+
+.admin-nav-item:hover {
+  background: var(--color-bg-soft);
+  color: var(--color-primary);
+}
+
+.admin-nav-item.active {
+  background: var(--color-accent-light);
+  color: var(--color-accent);
+  font-weight: 700;
+}
+
+.admin-nav-icon {
+  flex-shrink: 0;
+}
+
+.admin-nav-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: #E0E7FF;
+  color: var(--color-accent);
+  padding: 2px 7px;
+  border-radius: 10px;
+}
+
+.admin-sidebar-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-border);
+}
+
+.admin-upi-status-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: #ECFDF5;
+  border: 1px solid #A7F3D0;
+  border-radius: var(--radius-md);
+  font-size: 0.75rem;
+  color: #065F46;
+}
+
+.admin-sidebar-action-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--color-secondary);
+  background: transparent;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  width: 100%;
+}
+
+.admin-sidebar-action-btn:hover {
+  background: var(--color-bg-soft);
+  color: var(--color-primary);
+}
+
+.admin-sidebar-action-btn.danger {
+  color: #DC2626;
+  border-color: #FEE2E2;
+}
+
+.admin-sidebar-action-btn.danger:hover {
+  background: #FEF2F2;
+}
+
+.admin-workspace-pane {
+  flex: 1;
+  padding: 32px;
+  max-width: 1300px;
+  min-width: 0;
+}
+
+.admin-pane-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.admin-pane-title {
+  font-size: clamp(1.4rem, 3.5vw, 1.85rem);
+  font-weight: 800;
+  color: var(--color-primary);
+  letter-spacing: -0.02em;
+  margin: 0 0 6px 0;
+}
+
+.admin-pane-desc {
+  font-size: 0.92rem;
+  color: var(--color-secondary);
+  margin: 0;
+}
+
+/* Chapter Selector Horizontal Bar */
+.admin-chapter-selector-strip {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.admin-chapter-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 8px 12px;
+  background: #FFFFFF;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+  position: relative;
+  min-width: 110px;
+}
+
+.admin-chapter-tab:hover {
+  border-color: #CBD5E1;
+  background: var(--color-bg-soft);
+}
+
+.admin-chapter-tab.active {
+  border-color: var(--color-accent);
+  background: var(--color-accent-light);
+}
+
+.ch-tab-num {
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--color-accent);
+  text-transform: uppercase;
+}
+
+.ch-tab-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ch-tab-edited {
+  position: absolute;
+  top: 4px;
+  right: 8px;
+  font-size: 1.2rem;
+  color: #F59E0B;
+  line-height: 1;
+}
+
+/* Sidebar Responsive Breakpoint */
+@media (max-width: 960px) {
+  .admin-mobile-top-bar {
+    display: flex;
+  }
+  .admin-sidebar-nav {
+    position: fixed;
+    top: 72px;
+    left: 0;
+    bottom: 0;
+    height: calc(100vh - 72px);
+    transform: translateX(-100%);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+  }
+  .admin-sidebar-nav.open {
+    transform: translateX(0);
+  }
+  .admin-sidebar-backdrop {
+    position: fixed;
+    inset: 72px 0 0 0;
+    background: rgba(17, 24, 39, 0.4);
+    backdrop-filter: blur(2px);
+    z-index: 100;
+  }
+  .admin-workspace-pane {
+    padding: 20px 16px 60px;
+  }
+}

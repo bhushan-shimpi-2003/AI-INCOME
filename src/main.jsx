@@ -8,6 +8,7 @@ import {
 import { QRCodeSVG } from "qrcode.react";
 import { ebookSections } from "./ebookContent";
 import AdminPage from "./AdminPage";
+import { getSiteSettings, getMergedChapters } from "./siteData";
 import "./styles.css";
 
 const PREVIEW_LIMIT = 1;
@@ -45,7 +46,7 @@ const FAQS_DATA = [
   },
   {
     q: "Is this a one-time payment or a subscription?",
-    a: "It is a one-time payment of ₹79. There are no recurring charges, hidden fees, or subscriptions."
+    a: "It is a one-time payment. There are no recurring charges, hidden fees, or subscriptions."
   },
   {
     q: "Can I read it on mobile or tablet?",
@@ -101,7 +102,7 @@ const REVIEWS_DATA = [
 ];
 
 // Reusable Header Component
-function Header({ currentRoute, navigate, unlocked }) {
+function Header({ currentRoute, navigate, unlocked, siteSettings = getSiteSettings() }) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
@@ -120,12 +121,14 @@ function Header({ currentRoute, navigate, unlocked }) {
     setMobileOpen(false);
   };
 
+  const currentPrice = siteSettings?.price || 79;
+
   return (
     <header className="site-header">
       <div className="container header-inner">
         <div className="header-brand" onClick={() => handleNav("home")}>
           <div className="brand-icon">AI</div>
-          <span className="brand-name">AI Income for Everyone</span>
+          <span className="brand-name">{siteSettings?.bookTitle || "AI Income for Everyone"}</span>
         </div>
 
         <nav>
@@ -154,7 +157,7 @@ function Header({ currentRoute, navigate, unlocked }) {
                 Login
               </button>
               <button className="btn-primary header-cta" onClick={() => handleNav("checkout")}>
-                Get Ebook → ₹79
+                Get Ebook → ₹{currentPrice}
               </button>
             </>
           )}
@@ -185,7 +188,7 @@ function Header({ currentRoute, navigate, unlocked }) {
             </button>
           ) : (
             <button className="btn-primary" style={{ marginTop: 16, width: "100%", justifyContent: "center" }} onClick={() => handleNav("checkout")}>
-              Get the Ebook → ₹79
+              Get the Ebook → ₹{currentPrice}
             </button>
           )}
         </div>
@@ -195,7 +198,11 @@ function Header({ currentRoute, navigate, unlocked }) {
 }
 
 // Reusable Footer Component
-function Footer({ navigate }) {
+function Footer({ navigate, siteSettings = getSiteSettings() }) {
+  const currentPrice = siteSettings?.price || 79;
+  const bookTitle = siteSettings?.bookTitle || "AI Income for Everyone";
+  const authorName = siteSettings?.authorName || "Bhushan";
+
   return (
     <footer className="site-footer">
       <div className="container">
@@ -203,7 +210,7 @@ function Footer({ navigate }) {
           <div className="footer-brand-col">
             <div className="header-brand" onClick={() => navigate("home")}>
               <div className="brand-icon">AI</div>
-              <span className="brand-name">AI Income for Everyone</span>
+              <span className="brand-name">{bookTitle}</span>
             </div>
             <p>
               A practical, beginner-friendly guide to earning extra income with AI tools. Designed for students, professionals, and homemakers.
@@ -228,7 +235,7 @@ function Footer({ navigate }) {
               <li><button onClick={() => navigate("login")}>Reader Login</button></li>
               <li><button onClick={() => navigate("admin")} style={{ color: "var(--color-accent)", fontWeight: 600 }}>⚡ Admin Dashboard</button></li>
               <li><button onClick={() => navigate("contact")}>Contact Support</button></li>
-              <li><button onClick={() => navigate("checkout")}>Buy Ebook (₹79)</button></li>
+              <li><button onClick={() => navigate("checkout")}>Buy Ebook (₹{currentPrice})</button></li>
             </ul>
           </div>
 
@@ -243,7 +250,7 @@ function Footer({ navigate }) {
         </div>
 
         <div className="footer-bottom">
-          <span>© 2026 AI Income for Everyone by Bhushan. All rights reserved.</span>
+          <span>© {new Date().getFullYear()} {bookTitle} by {authorName}. All rights reserved.</span>
           <span>
             Digital Publishing & Practical AI Education • <button onClick={() => navigate("admin")} className="btn-link" style={{ fontSize: "0.82rem", color: "var(--color-muted)", padding: 0 }}>Admin Portal</button>
           </span>
@@ -254,8 +261,10 @@ function Footer({ navigate }) {
 }
 
 // 1. HOME PAGE
-function HomePage({ navigate }) {
+function HomePage({ navigate, siteSettings = getSiteSettings() }) {
   const [faqOpen, setFaqOpen] = useState(0);
+  const currentPrice = siteSettings?.price || 79;
+  const originalPrice = siteSettings?.originalPrice || 499;
 
   return (
     <div className="animate-page">
@@ -274,7 +283,7 @@ function HomePage({ navigate }) {
             </p>
             <div className="hero-actions">
               <button className="btn-primary" onClick={() => navigate("checkout")}>
-                Get the Ebook — ₹79
+                Get the Ebook — ₹{currentPrice}
               </button>
               <button className="btn-secondary" onClick={() => navigate("whats-inside")}>
                 See What's Inside
@@ -378,7 +387,7 @@ function HomePage({ navigate }) {
               <span className="stat-label">Readers started their AI journey</span>
             </div>
             <div className="stat-item animate-fade-up delay-2">
-              <span className="stat-number">₹79</span>
+              <span className="stat-number">₹{currentPrice}</span>
               <span className="stat-label">One-time payment • No subscriptions</span>
             </div>
             <div className="stat-item animate-fade-up delay-3">
@@ -480,14 +489,14 @@ function HomePage({ navigate }) {
                 ONE-TIME PAYMENT
               </span>
               <div className="price-numbers">
-                <span className="price-current">₹79</span>
-                <span className="price-original">₹499</span>
+                <span className="price-current">₹{currentPrice}</span>
+                <span className="price-original">₹{originalPrice}</span>
               </div>
               <p style={{ fontSize: "0.9rem", color: "var(--color-secondary)" }}>
                 Instant access in your browser. No recurring fees.
               </p>
               <button className="btn-primary btn-accent" style={{ width: "100%" }} onClick={() => navigate("checkout")}>
-                Get the Ebook → ₹79
+                Get the Ebook → ₹{currentPrice}
               </button>
               <span style={{ fontSize: "0.82rem", color: "var(--color-muted)", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
                 <Shield size={14} /> 30-Day Money-Back Guarantee
@@ -535,7 +544,8 @@ function HomePage({ navigate }) {
 }
 
 // 2. WHAT'S INSIDE PAGE
-function WhatsInsidePage({ navigate }) {
+function WhatsInsidePage({ navigate, siteSettings = getSiteSettings() }) {
+  const currentPrice = siteSettings?.price || 79;
   const modules = [
     {
       num: "01",
@@ -641,7 +651,7 @@ function WhatsInsidePage({ navigate }) {
 
         <div style={{ textAlign: "center", marginTop: 80 }} className="animate-fade-up delay-3">
           <button className="btn-primary" onClick={() => navigate("checkout")}>
-            Get the Complete Ebook — ₹79
+            Get the Complete Ebook — ₹{currentPrice}
           </button>
         </div>
       </div>
@@ -650,7 +660,7 @@ function WhatsInsidePage({ navigate }) {
 }
 
 // 3. CHAPTERS DIRECTORY PAGE
-function ChaptersPage({ navigate }) {
+function ChaptersPage({ navigate, chapters = getMergedChapters() }) {
   return (
     <div className="section animate-page">
       <div className="container">
@@ -661,7 +671,7 @@ function ChaptersPage({ navigate }) {
         </div>
 
         <div className="chapter-preview-list" style={{ marginTop: 48 }}>
-          {CHAPTER_OVERVIEWS.map((ch, idx) => (
+          {chapters.map((ch, idx) => (
             <div
               key={ch.id}
               className={`chapter-row animate-fade-up delay-${(idx % 4) + 1}`}
@@ -687,10 +697,18 @@ function ChaptersPage({ navigate }) {
 }
 
 // 4. CHAPTER DETAIL / DIGITAL READER PAGE
-function ChapterDetailPage({ chapterId, navigate, unlocked, setUnlocked }) {
+function ChapterDetailPage({
+  chapterId,
+  navigate,
+  unlocked,
+  setUnlocked,
+  chapters = getMergedChapters(),
+  siteSettings = getSiteSettings()
+}) {
+  const currentPrice = siteSettings?.price || 79;
   const [mobileTocOpen, setMobileTocOpen] = useState(false);
-  const currentIdx = Math.max(0, Math.min(chapterId - 1, ebookSections.length - 1));
-  const section = ebookSections[currentIdx] || ebookSections[0];
+  const currentIdx = Math.max(0, Math.min(chapterId - 1, chapters.length - 1));
+  const section = chapters[currentIdx] || chapters[0];
   const isPreview = currentIdx < PREVIEW_LIMIT;
   const canRead = unlocked || isPreview;
 
@@ -744,7 +762,7 @@ function ChapterDetailPage({ chapterId, navigate, unlocked, setUnlocked }) {
           )}
         </div>
         <ul className="reader-toc-list">
-          {ebookSections.map((s, idx) => (
+          {chapters.map((s, idx) => (
             <li key={idx}>
               <button
                 className={`reader-toc-item ${idx === currentIdx ? "active" : ""}`}
@@ -763,10 +781,10 @@ function ChapterDetailPage({ chapterId, navigate, unlocked, setUnlocked }) {
       {/* Main Reading Content */}
       <main className="reader-content-wrap">
         <div className="reader-meta-header animate-fade-up">
-          <span className="eyebrow">SECTION {String(currentIdx + 1).padStart(2, "0")} OF {ebookSections.length}</span>
+          <span className="eyebrow">SECTION {String(currentIdx + 1).padStart(2, "0")} OF {chapters.length}</span>
           <h1>{section.title}</h1>
           <span style={{ fontSize: "0.9rem", color: "var(--color-muted)", marginTop: 8, display: "block" }}>
-            Estimated read time: ~{CHAPTER_OVERVIEWS[currentIdx]?.readTime || "5 min"} • USE AI TO MAKE EXTRA INCOME by Bhushan
+            Estimated read time: ~{section.readTime || "5 min"} • USE AI TO MAKE EXTRA INCOME by Bhushan
           </span>
         </div>
 
@@ -787,11 +805,11 @@ function ChapterDetailPage({ chapterId, navigate, unlocked, setUnlocked }) {
               <span className="eyebrow">PREVIEW LIMIT REACHED</span>
               <h2 style={{ margin: "12px 0" }}>This Chapter is Part of the Complete Edition</h2>
               <p style={{ maxWidth: 480, margin: "0 auto 24px" }}>
-                Unlock all 15 sections, ready-made prompt templates, and the complete 30-day action plan for a one-time payment of ₹79.
+                Unlock all {chapters.length} sections, ready-made prompt templates, and the complete 30-day action plan for a one-time payment of ₹{currentPrice}.
               </p>
               <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap", alignItems: "center" }}>
                 <button className="btn-primary" onClick={() => navigate("checkout")}>
-                  Get the Complete Ebook — ₹79
+                  Get the Complete Ebook — ₹{currentPrice}
                 </button>
                 <button className="btn-secondary" onClick={() => navigate("login")}>
                   Already Purchased? Log In
@@ -813,14 +831,14 @@ function ChapterDetailPage({ chapterId, navigate, unlocked, setUnlocked }) {
           </button>
 
           <span style={{ fontSize: "0.85rem", color: "var(--color-muted)" }}>
-            Section {currentIdx + 1} of {ebookSections.length}
+            Section {currentIdx + 1} of {chapters.length}
           </span>
 
           <button
             className="btn-secondary"
-            disabled={currentIdx === ebookSections.length - 1}
+            disabled={currentIdx === chapters.length - 1}
             onClick={() => navigate(`chapter-${currentIdx + 2}`)}
-            style={{ opacity: currentIdx === ebookSections.length - 1 ? 0.4 : 1 }}
+            style={{ opacity: currentIdx === chapters.length - 1 ? 0.4 : 1 }}
           >
             Next Section →
           </button>
@@ -831,7 +849,8 @@ function ChapterDetailPage({ chapterId, navigate, unlocked, setUnlocked }) {
 }
 
 // 5. REVIEWS PAGE
-function ReviewsPage({ navigate }) {
+function ReviewsPage({ navigate, siteSettings = getSiteSettings() }) {
+  const currentPrice = siteSettings?.price || 79;
   return (
     <div className="section animate-page">
       <div className="container">
@@ -889,7 +908,7 @@ function ReviewsPage({ navigate }) {
 
         <div style={{ textAlign: "center", marginTop: 64 }} className="animate-fade-up delay-3">
           <button className="btn-primary" onClick={() => navigate("checkout")}>
-            Join 1,000+ Readers — ₹79
+            Join 1,000+ Readers — ₹{currentPrice}
           </button>
         </div>
       </div>
@@ -941,7 +960,11 @@ function FaqPage({ navigate }) {
 }
 
 // 7. PRICING PAGE
-function PricingPage({ navigate }) {
+function PricingPage({ navigate, siteSettings = getSiteSettings() }) {
+  const currentPrice = siteSettings?.price || 79;
+  const originalPrice = siteSettings?.originalPrice || 499;
+  const upiId = siteSettings?.upiId || "bhushan.shimpi1@ybl";
+
   return (
     <div className="section animate-page">
       <div className="container">
@@ -969,14 +992,14 @@ function PricingPage({ navigate }) {
               COMPLETE EDITION
             </span>
             <div className="price-numbers">
-              <span className="price-current">₹79</span>
-              <span className="price-original">₹499</span>
+              <span className="price-current">₹{currentPrice}</span>
+              <span className="price-original">₹{originalPrice}</span>
             </div>
             <p style={{ fontSize: "0.9rem", color: "var(--color-secondary)" }}>
-              One-time payment • Instant unlock via UPI (bhushan.shimpi1@ybl)
+              One-time payment • Instant unlock via UPI ({upiId})
             </p>
             <button className="btn-primary btn-accent" style={{ width: "100%" }} onClick={() => navigate("checkout")}>
-              Get the Ebook → ₹79
+              Get the Ebook → ₹{currentPrice}
             </button>
             <span style={{ fontSize: "0.82rem", color: "var(--color-muted)", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
               <Shield size={14} /> 30-Day Money-Back Guarantee
@@ -989,20 +1012,20 @@ function PricingPage({ navigate }) {
 }
 
 // 8. CHECKOUT PAGE
-function CheckoutPage({ navigate, setUnlocked }) {
+function CheckoutPage({ navigate, setUnlocked, siteSettings = getSiteSettings() }) {
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [copiedUpi, setCopiedUpi] = useState(false);
   const [paymentOption, setPaymentOption] = useState("qr"); // "qr" or "intent"
   const [errorMessage, setErrorMessage] = useState("");
 
-  const UPI_ID = "bhushan.shimpi1@ybl";
-  const AMOUNT = "79";
-  const PAYEE_NAME = "Bhushan Shimpi";
-  const NOTE = "AI Income Ebook - Bhushan Shimpi";
+  const UPI_ID = siteSettings?.upiId || "bhushan.shimpi1@ybl";
+  const AMOUNT = String(siteSettings?.price || 79);
+  const PAYEE_NAME = siteSettings?.payeeName || "Bhushan Shimpi";
+  const NOTE = siteSettings?.upiNote || "AI Income Ebook - Bhushan Shimpi";
 
   // Standard UPI URI format: opens UPI apps on mobile and encodes into QR code
-  const upiUrl = `upi://pay?pa=${encodeURIComponent(UPI_ID)}&pn=${encodeURIComponent(PAYEE_NAME)}&am=${AMOUNT}&cu=INR&tn=${encodeURIComponent(NOTE)}`;
+  const upiUrl = `upi://pay?pa=${encodeURIComponent(UPI_ID)}&pn=${encodeURIComponent(PAYEE_NAME)}&am=${encodeURIComponent(AMOUNT)}&cu=INR&tn=${encodeURIComponent(NOTE)}`;
 
   const handleCopyUpi = () => {
     if (navigator?.clipboard?.writeText) {
@@ -1045,7 +1068,7 @@ function CheckoutPage({ navigate, setUnlocked }) {
       id: "ORD-UPI-" + Date.now().toString(36).toUpperCase(),
       name: name.trim(),
       email: cleanEmail,
-      amount: 79,
+      amount: Number(AMOUNT) || 79,
       currency: "INR",
       paymentMethod: `UPI (${UPI_ID})`,
       date: new Date().toISOString(),
@@ -1076,12 +1099,12 @@ function CheckoutPage({ navigate, setUnlocked }) {
             <span className="eyebrow">ORDER SUMMARY</span>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
               <div>
-                <h3 style={{ fontSize: "1.4rem" }}>USE AI TO MAKE EXTRA INCOME</h3>
-                <span style={{ fontSize: "0.9rem", color: "var(--color-secondary)" }}>by Bhushan • Complete Digital Edition</span>
+                <h3 style={{ fontSize: "1.4rem" }}>{siteSettings?.bookTitle || "USE AI TO MAKE EXTRA INCOME"}</h3>
+                <span style={{ fontSize: "0.9rem", color: "var(--color-secondary)" }}>by {siteSettings?.authorName || "Bhushan"} • Complete Digital Edition</span>
               </div>
               <div style={{ textAlign: "right" }}>
-                <span style={{ fontSize: "1.7rem", fontWeight: 800, color: "var(--color-primary)" }}>₹79</span>
-                <span style={{ display: "block", fontSize: "0.85rem", color: "var(--color-muted)", textDecoration: "line-through" }}>₹499</span>
+                <span style={{ fontSize: "1.7rem", fontWeight: 800, color: "var(--color-primary)" }}>₹{AMOUNT}</span>
+                <span style={{ display: "block", fontSize: "0.85rem", color: "var(--color-muted)", textDecoration: "line-through" }}>₹{siteSettings?.originalPrice || 499}</span>
               </div>
             </div>
 
@@ -1097,7 +1120,7 @@ function CheckoutPage({ navigate, setUnlocked }) {
             <div style={{ padding: "16px", background: "#FFFFFF", border: "1px solid var(--color-border)", borderRadius: "var(--radius-md)", fontSize: "0.88rem", display: "flex", flexDirection: "column", gap: 6 }}>
               <div style={{ display: "flex", justifyContent: "space-between" }}>
                 <span style={{ color: "var(--color-secondary)" }}>Ebook Edition:</span>
-                <b>Complete 2026 Edition</b>
+                <b>Complete Digital Edition</b>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between" }}>
                 <span style={{ color: "var(--color-secondary)" }}>Payment Method:</span>
@@ -1105,7 +1128,7 @@ function CheckoutPage({ navigate, setUnlocked }) {
               </div>
               <div style={{ display: "flex", justifyContent: "space-between" }}>
                 <span style={{ color: "var(--color-secondary)" }}>Amount Due:</span>
-                <b style={{ color: "var(--color-accent)", fontSize: "1.05rem" }}>₹79 only</b>
+                <b style={{ color: "var(--color-accent)", fontSize: "1.05rem" }}>₹{AMOUNT} only</b>
               </div>
             </div>
 
@@ -1118,7 +1141,7 @@ function CheckoutPage({ navigate, setUnlocked }) {
           {/* Checkout & UPI Form (Right) */}
           <form className="checkout-form animate-fade-up delay-1" onSubmit={handleCompletePayment}>
             <span className="eyebrow">FAST UPI CHECKOUT</span>
-            <h2 style={{ marginBottom: 0 }}>Unlock Your Copy for ₹79</h2>
+            <h2 style={{ marginBottom: 0 }}>Unlock Your Copy for ₹{AMOUNT}</h2>
 
             {errorMessage && (
               <div style={{ padding: "12px 16px", background: "#FEF2F2", border: "1px solid #FCA5A5", borderRadius: "var(--radius-md)", color: "#991B1B", fontSize: "0.9rem" }}>
@@ -1158,11 +1181,11 @@ function CheckoutPage({ navigate, setUnlocked }) {
               </div>
             </div>
 
-            {/* Step 2: Pay ₹79 via UPI */}
+            {/* Step 2: Pay via UPI */}
             <div className="upi-pay-card">
               <div className="checkout-step">
                 <span className="step-num">2</span>
-                <span>Pay ₹79 to UPI ID: <span style={{ color: "var(--color-accent)" }}>{UPI_ID}</span></span>
+                <span>Pay ₹{AMOUNT} to UPI ID: <span style={{ color: "var(--color-accent)" }}>{UPI_ID}</span></span>
               </div>
 
               <div className="upi-method-tabs">
@@ -1185,7 +1208,7 @@ function CheckoutPage({ navigate, setUnlocked }) {
               {paymentOption === "qr" ? (
                 <div className="upi-qr-card">
                   <div className="upi-amount-pill">
-                    <Check size={14} /> Amount Prefilled: ₹79
+                    <Check size={14} /> Amount Prefilled: ₹{AMOUNT}
                   </div>
 
                   <div className="upi-qr-frame">
@@ -1215,7 +1238,7 @@ function CheckoutPage({ navigate, setUnlocked }) {
                     className="upi-direct-btn"
                     style={{ marginTop: 8 }}
                   >
-                    <Smartphone size={18} /> Open UPI App & Pay ₹79
+                    <Smartphone size={18} /> Open UPI App & Pay ₹{AMOUNT}
                   </a>
                 </div>
               ) : (
@@ -1224,10 +1247,10 @@ function CheckoutPage({ navigate, setUnlocked }) {
                     href={upiUrl}
                     className="upi-direct-btn"
                   >
-                    <Smartphone size={18} /> Tap to Pay ₹79 via UPI App
+                    <Smartphone size={18} /> Tap to Pay ₹{AMOUNT} via UPI App
                   </a>
                   <p style={{ fontSize: "0.82rem", color: "var(--color-muted)", textAlign: "center", margin: 0 }}>
-                    Automatically opens GPay / PhonePe / Paytm with ₹79 prefilled.
+                    Automatically opens GPay / PhonePe / Paytm with ₹{AMOUNT} prefilled.
                   </p>
 
                   <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "4px 0" }}>
@@ -1255,7 +1278,7 @@ function CheckoutPage({ navigate, setUnlocked }) {
                     <b>How to pay manually:</b>
                     <ol style={{ margin: "6px 0 0 18px", padding: 0, fontSize: "0.83rem" }}>
                       <li>Open any UPI app (GPay, PhonePe, Paytm).</li>
-                      <li>Send exactly <b>₹79</b> to <b>{UPI_ID}</b>.</li>
+                      <li>Send exactly <b>₹{AMOUNT}</b> to <b>{UPI_ID}</b>.</li>
                       <li>Click "Confirm Payment & Unlock Ebook" below.</li>
                     </ol>
                   </div>
@@ -1289,7 +1312,7 @@ function CheckoutPage({ navigate, setUnlocked }) {
               </div>
 
               <p style={{ fontSize: "0.9rem", color: "var(--color-secondary)", margin: "0 0 16px 0", lineHeight: 1.5 }}>
-                After completing your payment of ₹79 via your UPI app or the QR code above, click the button below to instantly unlock the full ebook.
+                After completing your payment of ₹{AMOUNT} via your UPI app or the QR code above, click the button below to instantly unlock the full ebook.
               </p>
 
               <button
@@ -1297,7 +1320,7 @@ function CheckoutPage({ navigate, setUnlocked }) {
                 className="btn-primary btn-accent"
                 style={{ width: "100%", padding: 16, fontSize: "1.05rem", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}
               >
-                <Check size={18} /> I Have Paid ₹79 — Unlock Ebook Now →
+                <Check size={18} /> I Have Paid ₹{AMOUNT} — Unlock Ebook Now →
               </button>
             </div>
 
@@ -1312,7 +1335,9 @@ function CheckoutPage({ navigate, setUnlocked }) {
 }
 
 // 9. THANK YOU / SUCCESS PAGE
-function ThankYouPage({ navigate }) {
+function ThankYouPage({ navigate, siteSettings = getSiteSettings() }) {
+  const currentPrice = siteSettings?.price || 79;
+  const currentUpi = siteSettings?.upiId || "bhushan.shimpi1@ybl";
   const customerData = (() => {
     try {
       return JSON.parse(localStorage.getItem("ai_income_customer")) || {};
@@ -1332,18 +1357,18 @@ function ThankYouPage({ navigate }) {
           <div>
             <span className="eyebrow">ORDER CONFIRMED & ACCESS GRANTED</span>
             <h1 style={{ fontSize: "2.5rem", margin: "8px 0" }}>You're In!</h1>
-            <p>Your payment of ₹79 has been confirmed. All 15 chapters and prompt libraries are now fully unlocked.</p>
+            <p>Your payment of ₹{currentPrice} has been confirmed. All 15 chapters and prompt libraries are now fully unlocked.</p>
           </div>
 
           <div style={{ width: "100%", padding: "20px", background: "var(--color-bg-soft)", border: "1px solid var(--color-border)", borderRadius: "var(--radius-md)", textAlign: "left" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, color: "#059669", fontWeight: 700, fontSize: "0.95rem" }}>
-              <Check size={18} /> Payment Successful (₹79 to bhushan.shimpi1@ybl)
+              <Check size={18} /> Payment Successful (₹{currentPrice} to {currentUpi})
             </div>
             <div style={{ fontSize: "0.88rem", color: "var(--color-secondary)", display: "flex", flexDirection: "column", gap: 6 }}>
               {customerData.name && (
                 <div><b>Customer:</b> {customerData.name} ({customerData.email})</div>
               )}
-              <div><b>Payment:</b> ₹79 (Confirmed via UPI)</div>
+              <div><b>Payment:</b> ₹{currentPrice} (Confirmed via UPI)</div>
               <div><b>Access Status:</b> <span style={{ color: "#059669", fontWeight: 600 }}>Active (Lifetime Access Unlocked)</span></div>
             </div>
           </div>
@@ -1363,7 +1388,10 @@ function ThankYouPage({ navigate }) {
 }
 
 // 10. LOGIN / ACCESS RESTORATION PAGE
-function LoginPage({ navigate, setUnlocked, unlocked }) {
+function LoginPage({ navigate, setUnlocked, unlocked, siteSettings = getSiteSettings() }) {
+  const currentPrice = siteSettings?.price || 79;
+  const currentUpi = siteSettings?.upiId || "bhushan.shimpi1@ybl";
+  const supportEmail = siteSettings?.supportEmail || "shimpibhushan2503@gmail.com";
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState(null);
   const [currentUser, setCurrentUser] = useState(() => localStorage.getItem(CURRENT_USER_KEY) || "");
@@ -1372,6 +1400,7 @@ function LoginPage({ navigate, setUnlocked, unlocked }) {
   const AUTHOR_EMAILS = [
     "shimpibhushan2503@gmail.com",
     "bhushan.shimpi1@ybl",
+    supportEmail.toLowerCase(),
     "support@aiincomeguide.com"
   ];
 
@@ -1453,7 +1482,7 @@ function LoginPage({ navigate, setUnlocked, unlocked }) {
       "ai_income_customer",
       JSON.stringify({
         email: targetEmail,
-        amount: 79,
+        amount: currentPrice,
         restoredAt: new Date().toISOString()
       })
     );
@@ -1467,9 +1496,9 @@ function LoginPage({ navigate, setUnlocked, unlocked }) {
           id: "ORD-RESTORED-" + Date.now().toString(36).toUpperCase(),
           name: targetEmail.split("@")[0],
           email: targetEmail,
-          amount: 79,
+          amount: currentPrice,
           currency: "INR",
-          paymentMethod: "UPI (bhushan.shimpi1@ybl - Restored)",
+          paymentMethod: `UPI (${currentUpi} - Restored)`,
           date: new Date().toISOString(),
           status: "Completed",
           type: "live"
@@ -1612,7 +1641,7 @@ function LoginPage({ navigate, setUnlocked, unlocked }) {
               {unlinkedEmail && (
                 <div style={{ padding: 14, background: "#FEF3C7", border: "1px solid #FDE68A", borderRadius: "var(--radius-md)", display: "flex", flexDirection: "column", gap: 10 }}>
                   <div style={{ fontSize: "0.86rem", color: "#92400E", fontWeight: 600 }}>
-                    Already completed payment of ₹79 with {unlinkedEmail}?
+                    Already completed payment of ₹{currentPrice} with {unlinkedEmail}?
                   </div>
                   <button
                     type="button"
@@ -1620,7 +1649,7 @@ function LoginPage({ navigate, setUnlocked, unlocked }) {
                     onClick={handleRestorePaidAccess}
                     style={{ width: "100%", justifyContent: "center", fontSize: "0.9rem", padding: "10px 14px" }}
                   >
-                    ✓ Yes, I Paid ₹79 — Unlock Access Now
+                    ✓ Yes, I Paid ₹{currentPrice} — Unlock Access Now
                   </button>
                 </div>
               )}
@@ -1638,7 +1667,7 @@ function LoginPage({ navigate, setUnlocked, unlocked }) {
                   onClick={() => navigate("checkout")}
                   style={{ width: "100%", justifyContent: "center" }}
                 >
-                  Buy Ebook for ₹79 (Instant Access) →
+                  Buy Ebook for ₹{currentPrice} (Instant Access) →
                 </button>
               </div>
             </form>
@@ -1819,6 +1848,19 @@ export default function App() {
   const [route, setRoute] = useState(getInitialRoute);
   const [unlocked, setUnlocked] = useState(() => localStorage.getItem(STORAGE_KEY) === "true");
   const [scrollProgress, setScrollProgress] = useState(0);
+  const [siteSettings, setSiteSettings] = useState(getSiteSettings);
+  const [chapters, setChapters] = useState(getMergedChapters);
+
+  useEffect(() => {
+    const handleSettingsUpdate = () => setSiteSettings(getSiteSettings());
+    const handleChaptersUpdate = () => setChapters(getMergedChapters());
+    window.addEventListener("site_settings_updated", handleSettingsUpdate);
+    window.addEventListener("chapters_updated", handleChaptersUpdate);
+    return () => {
+      window.removeEventListener("site_settings_updated", handleSettingsUpdate);
+      window.removeEventListener("chapters_updated", handleChaptersUpdate);
+    };
+  }, []);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -1862,31 +1904,33 @@ export default function App() {
           navigate={navigate}
           unlocked={unlocked}
           setUnlocked={setUnlocked}
+          chapters={chapters}
+          siteSettings={siteSettings}
         />
       );
     }
 
     switch (route) {
       case "home":
-        return <HomePage navigate={navigate} />;
+        return <HomePage navigate={navigate} siteSettings={siteSettings} />;
       case "whats-inside":
-        return <WhatsInsidePage navigate={navigate} />;
+        return <WhatsInsidePage navigate={navigate} siteSettings={siteSettings} />;
       case "chapters":
-        return <ChaptersPage navigate={navigate} />;
+        return <ChaptersPage navigate={navigate} chapters={chapters} />;
       case "reviews":
-        return <ReviewsPage navigate={navigate} />;
+        return <ReviewsPage navigate={navigate} siteSettings={siteSettings} />;
       case "faq":
         return <FaqPage navigate={navigate} />;
       case "pricing":
-        return <PricingPage navigate={navigate} />;
+        return <PricingPage navigate={navigate} siteSettings={siteSettings} />;
       case "checkout":
-        return <CheckoutPage navigate={navigate} setUnlocked={setUnlocked} />;
+        return <CheckoutPage navigate={navigate} setUnlocked={setUnlocked} siteSettings={siteSettings} />;
       case "thank-you":
-        return <ThankYouPage navigate={navigate} />;
+        return <ThankYouPage navigate={navigate} siteSettings={siteSettings} />;
       case "contact":
         return <ContactPage navigate={navigate} />;
       case "login":
-        return <LoginPage navigate={navigate} setUnlocked={setUnlocked} unlocked={unlocked} />;
+        return <LoginPage navigate={navigate} setUnlocked={setUnlocked} unlocked={unlocked} siteSettings={siteSettings} />;
       case "admin":
       case "dashboard":
         return <AdminPage navigate={navigate} />;
@@ -1897,16 +1941,16 @@ export default function App() {
       case "refund":
         return <RefundPage navigate={navigate} />;
       default:
-        return <HomePage navigate={navigate} />;
+        return <HomePage navigate={navigate} siteSettings={siteSettings} />;
     }
   };
 
   return (
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
       <div className="reading-progress-bar" style={{ width: `${scrollProgress}%` }} />
-      <Header currentRoute={route} navigate={navigate} unlocked={unlocked} />
+      <Header currentRoute={route} navigate={navigate} unlocked={unlocked} siteSettings={siteSettings} />
       <div style={{ flex: 1 }}>{renderContent()}</div>
-      <Footer navigate={navigate} />
+      <Footer navigate={navigate} siteSettings={siteSettings} />
     </div>
   );
 }
