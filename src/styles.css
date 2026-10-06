@@ -73,6 +73,28 @@ html, body {
 html {
   scroll-behavior: smooth;
   color-scheme: light;
+  scrollbar-width: thin;
+  scrollbar-color: #CBD5E1 #F8FAFC;
+}
+
+/* Modern sleek scrollbars across all pages */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: #F1F5F9;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 6px;
+  border: 2px solid #F1F5F9;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
 }
 
 body {
@@ -2872,7 +2894,9 @@ p {
 .admin-frame-root {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  height: 100vh;
+  max-height: 100vh;
+  overflow: hidden;
   background-color: #F8FAFC;
 }
 
@@ -2883,8 +2907,7 @@ p {
   padding: 12px 16px;
   justify-content: space-between;
   align-items: center;
-  position: sticky;
-  top: 0;
+  flex-shrink: 0;
   z-index: 100;
 }
 
@@ -2903,6 +2926,9 @@ p {
 .admin-body-container {
   display: flex;
   flex: 1;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
   position: relative;
 }
 
@@ -2914,10 +2940,8 @@ p {
   display: flex;
   flex-direction: column;
   padding: 16px 12px;
-  position: sticky;
-  top: 0;
-  height: 100vh;
-  max-height: 100vh;
+  height: 100%;
+  max-height: 100%;
   overflow-y: auto;
   overflow-x: hidden;
   scrollbar-width: none; /* Firefox: hide scrollbar */
@@ -3048,9 +3072,37 @@ p {
 
 .admin-workspace-pane {
   flex: 1;
-  padding: 24px 32px 60px;
-  max-width: 1440px;
+  height: 100%;
+  min-height: 0;
   min-width: 0;
+  padding: 24px 32px 80px;
+  max-width: 1440px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: #94A3B8 #F1F5F9;
+}
+
+/* Dedicated visible vertical scrollbar on all admin pages */
+.admin-workspace-pane::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+  display: block;
+}
+
+.admin-workspace-pane::-webkit-scrollbar-track {
+  background: #F1F5F9;
+}
+
+.admin-workspace-pane::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 6px;
+  border: 2px solid #F1F5F9;
+}
+
+.admin-workspace-pane::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
 }
 
 .admin-pane-header {
@@ -3159,6 +3211,9 @@ p {
     z-index: 100;
   }
   .admin-workspace-pane {
-    padding: 20px 16px 60px;
+    padding: 20px 16px 80px;
+    height: 100%;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
 }

@@ -541,7 +541,7 @@ export default function AdminPage({ navigate }) {
   // AUTHENTICATION GATE
   if (!isAuthed) {
     return (
-      <div className="section animate-page" style={{ minHeight: "100vh", display: "flex", alignItems: "center" }}>
+      <div className="section animate-page" style={{ minHeight: "100vh", height: "100%", overflowY: "auto", display: "flex", alignItems: "center" }}>
         <div className="container">
           <div className="auth-box animate-fade-up" style={{ maxWidth: 440 }}>
             <div className="auth-header">
