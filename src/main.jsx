@@ -101,6 +101,17 @@ const REVIEWS_DATA = [
 function Header({ currentRoute, navigate }) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
+  useEffect(() => {
+    if (mobileOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [mobileOpen]);
+
   const handleNav = (route) => {
     navigate(route);
     setMobileOpen(false);
@@ -641,10 +652,16 @@ function ChaptersPage({ navigate }) {
 
 // 4. CHAPTER DETAIL / DIGITAL READER PAGE
 function ChapterDetailPage({ chapterId, navigate, unlocked, setUnlocked }) {
+  const [mobileTocOpen, setMobileTocOpen] = useState(false);
   const currentIdx = Math.max(0, Math.min(chapterId - 1, ebookSections.length - 1));
   const section = ebookSections[currentIdx] || ebookSections[0];
   const isPreview = currentIdx < PREVIEW_LIMIT;
   const canRead = unlocked || isPreview;
+
+  const handleSelectChapter = (newId) => {
+    navigate(`chapter-${newId}`);
+    setMobileTocOpen(false);
+  };
 
   const renderBlock = (b, i) => {
     if (b.type === "heading") return <h3 key={i}>{b.text}</h3>;
@@ -655,17 +672,49 @@ function ChapterDetailPage({ chapterId, navigate, unlocked, setUnlocked }) {
 
   return (
     <div className="reader-layout animate-page">
+      {/* Mobile Top Chapter Switcher */}
+      <div className="reader-mobile-bar">
+        <button
+          type="button"
+          className="reader-mobile-toggle"
+          onClick={() => setMobileTocOpen(!mobileTocOpen)}
+          aria-expanded={mobileTocOpen}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 8, overflow: "hidden", minWidth: 0 }}>
+            <BookOpen size={16} style={{ flexShrink: 0 }} />
+            <span style={{ fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {String(currentIdx + 1).padStart(2, "0")}. {section.title.replace(/^Chapter \d+: /, "")}
+            </span>
+          </div>
+          <span className="reader-toc-badge">
+            Chapters {mobileTocOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          </span>
+        </button>
+      </div>
+
       {/* Sidebar Navigation */}
-      <aside className="reader-sidebar animate-fade">
-        <h4>TABLE OF CONTENTS</h4>
+      <aside className={`reader-sidebar animate-fade ${mobileTocOpen ? "mobile-open" : ""}`}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <h4>TABLE OF CONTENTS</h4>
+          {mobileTocOpen && (
+            <button
+              type="button"
+              className="reader-close-toc-btn"
+              onClick={() => setMobileTocOpen(false)}
+              aria-label="Close chapter list"
+            >
+              <X size={18} />
+            </button>
+          )}
+        </div>
         <ul className="reader-toc-list">
           {ebookSections.map((s, idx) => (
             <li key={idx}>
               <button
                 className={`reader-toc-item ${idx === currentIdx ? "active" : ""}`}
-                onClick={() => navigate(`chapter-${idx + 1}`)}
+                onClick={() => handleSelectChapter(idx + 1)}
               >
-                <span style={{ fontWeight: 700 }}>{String(idx + 1).padStart(2, "0")}</span>
+                <span style={{ fontWeight: 700, flexShrink: 0 }}>{String(idx + 1).padStart(2, "0")}</span>
                 <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {s.title.replace(/^Chapter \d+: /, "")}
                 </span>
@@ -1245,11 +1294,11 @@ function ThankYouPage({ navigate }) {
             </div>
           </div>
 
-          <div style={{ display: "flex", gap: 16, width: "100%", flexWrap: "wrap", justifyContent: "center" }}>
-            <button className="btn-primary btn-accent" style={{ flex: 1, minWidth: 220 }} onClick={() => navigate("chapter-1")}>
+          <div style={{ display: "flex", gap: 12, width: "100%", flexWrap: "wrap", justifyContent: "center" }}>
+            <button className="btn-primary btn-accent" style={{ flex: "1 1 180px" }} onClick={() => navigate("chapter-1")}>
               Start Reading Introduction →
             </button>
-            <button className="btn-secondary" style={{ flex: 1, minWidth: 200 }} onClick={() => navigate("chapters")}>
+            <button className="btn-secondary" style={{ flex: "1 1 180px" }} onClick={() => navigate("chapters")}>
               Browse All 15 Chapters
             </button>
           </div>
@@ -1303,7 +1352,7 @@ function ContactPage({ navigate }) {
                 <p style={{ marginTop: 8 }}>Thank you for reaching out. We will respond to your email shortly.</p>
               </div>
             ) : (
-              <form className="checkout-form" onSubmit={handleSubmit} style={{ background: "var(--color-bg-soft)", padding: 32, border: "1px solid var(--color-border)", borderRadius: "var(--radius-lg)" }}>
+              <form className="checkout-form contact-form-card" onSubmit={handleSubmit}>
                 <div className="form-group">
                   <label>Your Name</label>
                   <input type="text" className="form-input" placeholder="Your name" required />
