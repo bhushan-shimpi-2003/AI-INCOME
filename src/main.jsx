@@ -2,9 +2,10 @@ import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
   ArrowLeft, ArrowRight, BookOpen, Check, ChevronDown, ChevronUp,
-  Clock, Download, HelpCircle, Mail, Menu, MessageSquare, Shield,
-  Sparkles, Star, User, X, Zap
+  Clock, Copy, Download, ExternalLink, HelpCircle, Mail, Menu, MessageSquare,
+  QrCode, Shield, Smartphone, Sparkles, Star, User, X, Zap
 } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 import { ebookSections } from "./ebookContent";
 import "./styles.css";
 
@@ -41,7 +42,7 @@ const FAQS_DATA = [
   },
   {
     q: "Is this a one-time payment or a subscription?",
-    a: "It is a one-time payment of ₹299. There are no recurring charges, hidden fees, or subscriptions."
+    a: "It is a one-time payment of ₹79. There are no recurring charges, hidden fees, or subscriptions."
   },
   {
     q: "Can I read it on mobile or tablet?",
@@ -125,7 +126,7 @@ function Header({ currentRoute, navigate }) {
 
         <div className="header-actions">
           <button className="btn-primary header-cta" onClick={() => handleNav("checkout")}>
-            Get the Ebook → ₹299
+            Get the Ebook → ₹79
           </button>
           <button className="mobile-menu-toggle" onClick={() => setMobileOpen(!mobileOpen)} aria-label="Toggle menu">
             {mobileOpen ? <X size={24} /> : <Menu size={24} />}
@@ -142,7 +143,7 @@ function Header({ currentRoute, navigate }) {
           <span className="mobile-nav-link" onClick={() => handleNav("faq")}>FAQ</span>
           <span className="mobile-nav-link" onClick={() => handleNav("pricing")}>Pricing</span>
           <button className="btn-primary" style={{ marginTop: 16 }} onClick={() => handleNav("checkout")}>
-            Get the Ebook → ₹299
+            Get the Ebook → ₹79
           </button>
         </div>
       )}
@@ -182,7 +183,7 @@ function Footer({ navigate }) {
               <li><button onClick={() => navigate("pricing")}>Pricing</button></li>
               <li><button onClick={() => navigate("faq")}>FAQ</button></li>
               <li><button onClick={() => navigate("contact")}>Contact Support</button></li>
-              <li><button onClick={() => navigate("checkout")}>Buy Ebook (₹299)</button></li>
+              <li><button onClick={() => navigate("checkout")}>Buy Ebook (₹79)</button></li>
             </ul>
           </div>
 
@@ -226,7 +227,7 @@ function HomePage({ navigate }) {
             </p>
             <div className="hero-actions">
               <button className="btn-primary" onClick={() => navigate("checkout")}>
-                Get the Ebook — ₹299
+                Get the Ebook — ₹79
               </button>
               <button className="btn-secondary" onClick={() => navigate("whats-inside")}>
                 See What's Inside
@@ -330,7 +331,7 @@ function HomePage({ navigate }) {
               <span className="stat-label">Readers started their AI journey</span>
             </div>
             <div className="stat-item animate-fade-up delay-2">
-              <span className="stat-number">₹299</span>
+              <span className="stat-number">₹79</span>
               <span className="stat-label">One-time payment • No subscriptions</span>
             </div>
             <div className="stat-item animate-fade-up delay-3">
@@ -432,14 +433,14 @@ function HomePage({ navigate }) {
                 ONE-TIME PAYMENT
               </span>
               <div className="price-numbers">
-                <span className="price-current">₹299</span>
+                <span className="price-current">₹79</span>
                 <span className="price-original">₹499</span>
               </div>
               <p style={{ fontSize: "0.9rem", color: "var(--color-secondary)" }}>
                 Instant access in your browser. No recurring fees.
               </p>
               <button className="btn-primary btn-accent" style={{ width: "100%" }} onClick={() => navigate("checkout")}>
-                Get the Ebook → ₹299
+                Get the Ebook → ₹79
               </button>
               <span style={{ fontSize: "0.82rem", color: "var(--color-muted)", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
                 <Shield size={14} /> 30-Day Money-Back Guarantee
@@ -593,7 +594,7 @@ function WhatsInsidePage({ navigate }) {
 
         <div style={{ textAlign: "center", marginTop: 80 }} className="animate-fade-up delay-3">
           <button className="btn-primary" onClick={() => navigate("checkout")}>
-            Get the Complete Ebook — ₹299
+            Get the Complete Ebook — ₹79
           </button>
         </div>
       </div>
@@ -701,10 +702,10 @@ function ChapterDetailPage({ chapterId, navigate, unlocked, setUnlocked }) {
               <span className="eyebrow">PREVIEW LIMIT REACHED</span>
               <h2 style={{ margin: "12px 0" }}>This Chapter is Part of the Complete Edition</h2>
               <p style={{ maxWidth: 480, margin: "0 auto 24px" }}>
-                Unlock all 15 sections, ready-made prompt templates, and the complete 30-day action plan for a one-time payment of ₹299.
+                Unlock all 15 sections, ready-made prompt templates, and the complete 30-day action plan for a one-time payment of ₹79.
               </p>
               <button className="btn-primary" onClick={() => navigate("checkout")}>
-                Get the Complete Ebook — ₹299
+                Get the Complete Ebook — ₹79
               </button>
             </div>
           )}
@@ -798,7 +799,7 @@ function ReviewsPage({ navigate }) {
 
         <div style={{ textAlign: "center", marginTop: 64 }} className="animate-fade-up delay-3">
           <button className="btn-primary" onClick={() => navigate("checkout")}>
-            Join 1,000+ Readers — ₹299
+            Join 1,000+ Readers — ₹79
           </button>
         </div>
       </div>
@@ -878,14 +879,14 @@ function PricingPage({ navigate }) {
               COMPLETE EDITION
             </span>
             <div className="price-numbers">
-              <span className="price-current">₹299</span>
+              <span className="price-current">₹79</span>
               <span className="price-original">₹499</span>
             </div>
             <p style={{ fontSize: "0.9rem", color: "var(--color-secondary)" }}>
-              One-time payment • Secure checkout via UPI, Cards, Net Banking
+              One-time payment • Instant unlock via UPI (bhushan.shimpi1@ybl)
             </p>
             <button className="btn-primary btn-accent" style={{ width: "100%" }} onClick={() => navigate("checkout")}>
-              Get the Ebook → ₹299
+              Get the Ebook → ₹79
             </button>
             <span style={{ fontSize: "0.82rem", color: "var(--color-muted)", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
               <Shield size={14} /> 30-Day Money-Back Guarantee
@@ -901,16 +902,53 @@ function PricingPage({ navigate }) {
 function CheckoutPage({ navigate, setUnlocked }) {
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
-  const [method, setMethod] = useState("upi");
+  const [utr, setUtr] = useState("");
+  const [copiedUpi, setCopiedUpi] = useState(false);
+  const [paymentOption, setPaymentOption] = useState("qr"); // "qr" or "intent"
+  const [errorMessage, setErrorMessage] = useState("");
 
-  const handlePay = (e) => {
+  const UPI_ID = "bhushan.shimpi1@ybl";
+  const AMOUNT = "79";
+  const PAYEE_NAME = "Bhushan Shimpi";
+  const NOTE = "AI Income Ebook - Bhushan Shimpi";
+
+  // Standard UPI URI format: opens UPI apps on mobile and encodes into QR code
+  const upiUrl = `upi://pay?pa=${encodeURIComponent(UPI_ID)}&pn=${encodeURIComponent(PAYEE_NAME)}&am=${AMOUNT}&cu=INR&tn=${encodeURIComponent(NOTE)}`;
+
+  const handleCopyUpi = () => {
+    if (navigator?.clipboard?.writeText) {
+      navigator.clipboard.writeText(UPI_ID);
+    }
+    setCopiedUpi(true);
+    setTimeout(() => setCopiedUpi(false), 2500);
+  };
+
+  const handleCompletePayment = (e) => {
     e.preventDefault();
-    if (!email) {
-      alert("Please enter a valid email address.");
+    if (!name.trim()) {
+      setErrorMessage("Please enter your full name.");
       return;
     }
+    if (!email.trim() || !email.includes("@")) {
+      setErrorMessage("Please enter a valid email address to receive access confirmation.");
+      return;
+    }
+    setErrorMessage("");
+
+    // Immediately grant access to the entire ebook
     setUnlocked(true);
     localStorage.setItem(STORAGE_KEY, "true");
+    localStorage.setItem(
+      "ai_income_customer",
+      JSON.stringify({
+        name: name.trim(),
+        email: email.trim(),
+        utr: utr.trim() || "UPI-CONFIRMED-79",
+        upiId: UPI_ID,
+        amount: 79,
+        purchasedAt: new Date().toISOString()
+      })
+    );
     navigate("thank-you");
   };
 
@@ -918,6 +956,7 @@ function CheckoutPage({ navigate, setUnlocked }) {
     <div className="section animate-page" style={{ minHeight: "80vh" }}>
       <div className="container">
         <div className="checkout-grid">
+          {/* Order Summary (Left) */}
           <div className="order-summary-box animate-fade-up">
             <span className="eyebrow">ORDER SUMMARY</span>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
@@ -925,7 +964,10 @@ function CheckoutPage({ navigate, setUnlocked }) {
                 <h3 style={{ fontSize: "1.4rem" }}>USE AI TO MAKE EXTRA INCOME</h3>
                 <span style={{ fontSize: "0.9rem", color: "var(--color-secondary)" }}>by Bhushan • Complete Digital Edition</span>
               </div>
-              <span style={{ fontSize: "1.6rem", fontWeight: 800, color: "var(--color-primary)" }}>₹299</span>
+              <div style={{ textAlign: "right" }}>
+                <span style={{ fontSize: "1.7rem", fontWeight: 800, color: "var(--color-primary)" }}>₹79</span>
+                <span style={{ display: "block", fontSize: "0.85rem", color: "var(--color-muted)", textDecoration: "line-through" }}>₹499</span>
+              </div>
             </div>
 
             <hr style={{ border: "none", borderTop: "1px solid var(--color-border)" }} />
@@ -933,76 +975,229 @@ function CheckoutPage({ navigate, setUnlocked }) {
             <ul className="pricing-checklist" style={{ margin: 0 }}>
               <li><Check size={16} /> Instant access to all 15 sections</li>
               <li><Check size={16} /> Complete 30-day action plan with prompts</li>
-              <li><Check size={16} /> Free lifetime edition updates</li>
+              <li><Check size={16} /> Lifetime updates & browser reader</li>
+              <li><Check size={16} /> Instant UPI activation (PhonePe, GPay, Paytm)</li>
             </ul>
 
-            <div style={{ marginTop: "auto", padding: "16px", background: "#FFFFFF", border: "1px solid var(--color-border)", borderRadius: "var(--radius-md)", fontSize: "0.85rem", color: "var(--color-secondary)", display: "flex", alignItems: "center", gap: 8 }}>
-              <Shield size={18} color="var(--color-accent)" />
-              <span>30-Day Money-Back Guarantee • Zero Risk</span>
-            </div>
-          </div>
-
-          <form className="checkout-form animate-fade-up delay-1" onSubmit={handlePay}>
-            <span className="eyebrow">CUSTOMER DETAILS</span>
-            <h2>Complete Your Purchase</h2>
-
-            <div className="form-group">
-              <label>Your Full Name</label>
-              <input
-                type="text"
-                className="form-input"
-                placeholder="e.g. Rahul Sharma"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-              />
-            </div>
-
-            <div className="form-group">
-              <label>Email Address (for ebook access & updates)</label>
-              <input
-                type="email"
-                className="form-input"
-                placeholder="rahul@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
-
-            <div className="form-group">
-              <label>Payment Method</label>
-              <div className="payment-method-selector">
-                <button
-                  type="button"
-                  className={`payment-opt-btn ${method === "upi" ? "active" : ""}`}
-                  onClick={() => setMethod("upi")}
-                >
-                  UPI / GPay / PhonePe
-                </button>
-                <button
-                  type="button"
-                  className={`payment-opt-btn ${method === "card" ? "active" : ""}`}
-                  onClick={() => setMethod("card")}
-                >
-                  Debit / Credit Card
-                </button>
-                <button
-                  type="button"
-                  className={`payment-opt-btn ${method === "netbanking" ? "active" : ""}`}
-                  onClick={() => setMethod("netbanking")}
-                >
-                  Net Banking
-                </button>
+            <div style={{ padding: "16px", background: "#FFFFFF", border: "1px solid var(--color-border)", borderRadius: "var(--radius-md)", fontSize: "0.88rem", display: "flex", flexDirection: "column", gap: 6 }}>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: "var(--color-secondary)" }}>Ebook Edition:</span>
+                <b>Complete 2026 Edition</b>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: "var(--color-secondary)" }}>Payment Method:</span>
+                <b>UPI (GPay/PhonePe/Paytm)</b>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: "var(--color-secondary)" }}>Amount Due:</span>
+                <b style={{ color: "var(--color-accent)", fontSize: "1.05rem" }}>₹79 only</b>
               </div>
             </div>
 
-            <button type="submit" className="btn-primary btn-accent" style={{ width: "100%", padding: 16, fontSize: "1.05rem" }}>
-              Pay ₹299 and Get Instant Access →
-            </button>
+            <div style={{ marginTop: "auto", padding: "16px", background: "#FFFFFF", border: "1px solid var(--color-border)", borderRadius: "var(--radius-md)", fontSize: "0.85rem", color: "var(--color-secondary)", display: "flex", alignItems: "center", gap: 8 }}>
+              <Shield size={18} color="var(--color-accent)" />
+              <span>30-Day Money-Back Guarantee • 100% Risk Free</span>
+            </div>
+          </div>
 
-            <p style={{ fontSize: "0.82rem", color: "var(--color-muted)", textAlign: "center" }}>
-              Encrypted 256-bit SSL connection. We respect your privacy.
+          {/* Checkout & UPI Form (Right) */}
+          <form className="checkout-form animate-fade-up delay-1" onSubmit={handleCompletePayment}>
+            <span className="eyebrow">FAST UPI CHECKOUT</span>
+            <h2 style={{ marginBottom: 0 }}>Unlock Your Copy for ₹79</h2>
+
+            {errorMessage && (
+              <div style={{ padding: "12px 16px", background: "#FEF2F2", border: "1px solid #FCA5A5", borderRadius: "var(--radius-md)", color: "#991B1B", fontSize: "0.9rem" }}>
+                {errorMessage}
+              </div>
+            )}
+
+            {/* Step 1: Customer Info */}
+            <div className="upi-pay-card">
+              <div className="checkout-step">
+                <span className="step-num">1</span>
+                <span>Enter Your Details</span>
+              </div>
+
+              <div className="form-group">
+                <label>Your Full Name *</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="e.g. Rahul Sharma"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Email Address (for instant access & updates) *</label>
+                <input
+                  type="email"
+                  className="form-input"
+                  placeholder="rahul@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+
+            {/* Step 2: Pay ₹79 via UPI */}
+            <div className="upi-pay-card">
+              <div className="checkout-step">
+                <span className="step-num">2</span>
+                <span>Pay ₹79 to UPI ID: <span style={{ color: "var(--color-accent)" }}>{UPI_ID}</span></span>
+              </div>
+
+              <div className="upi-method-tabs">
+                <button
+                  type="button"
+                  className={`upi-method-tab ${paymentOption === "qr" ? "active" : ""}`}
+                  onClick={() => setPaymentOption("qr")}
+                >
+                  <QrCode size={16} /> Scan QR Code
+                </button>
+                <button
+                  type="button"
+                  className={`upi-method-tab ${paymentOption === "intent" ? "active" : ""}`}
+                  onClick={() => setPaymentOption("intent")}
+                >
+                  <Smartphone size={16} /> Pay via UPI App / ID
+                </button>
+              </div>
+
+              {paymentOption === "qr" ? (
+                <div className="upi-qr-card">
+                  <div className="upi-amount-pill">
+                    <Check size={14} /> Amount Prefilled: ₹79
+                  </div>
+
+                  <div className="upi-qr-frame">
+                    <QRCodeSVG
+                      value={upiUrl}
+                      size={180}
+                      level="M"
+                      includeMargin={false}
+                    />
+                  </div>
+
+                  <div style={{ fontSize: "0.85rem", color: "var(--color-secondary)", maxWidth: 300, lineHeight: 1.4 }}>
+                    Scan with <b>Google Pay</b>, <b>PhonePe</b>, <b>Paytm</b>, <b>BHIM</b> or any UPI app.
+                  </div>
+
+                  <div className="upi-apps-row">
+                    <span className="upi-app-badge">Google Pay</span>
+                    <span className="upi-app-badge">PhonePe</span>
+                    <span className="upi-app-badge">Paytm</span>
+                    <span className="upi-app-badge">BHIM</span>
+                    <span className="upi-app-badge">CRED</span>
+                  </div>
+
+                  {/* Mobile Direct Pay Link */}
+                  <a
+                    href={upiUrl}
+                    className="upi-direct-btn"
+                    style={{ marginTop: 8 }}
+                  >
+                    <Smartphone size={18} /> Open UPI App & Pay ₹79
+                  </a>
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                  <a
+                    href={upiUrl}
+                    className="upi-direct-btn"
+                  >
+                    <Smartphone size={18} /> Tap to Pay ₹79 via UPI App
+                  </a>
+                  <p style={{ fontSize: "0.82rem", color: "var(--color-muted)", textAlign: "center", margin: 0 }}>
+                    Automatically opens GPay / PhonePe / Paytm with ₹79 prefilled.
+                  </p>
+
+                  <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "4px 0" }}>
+                    <div style={{ flex: 1, height: 1, background: "var(--color-border)" }} />
+                    <span style={{ fontSize: "0.8rem", color: "var(--color-muted)" }}>OR PAY MANUALLY</span>
+                    <div style={{ flex: 1, height: 1, background: "var(--color-border)" }} />
+                  </div>
+
+                  <div className="upi-id-box">
+                    <div>
+                      <div style={{ fontSize: "0.75rem", color: "var(--color-muted)", textTransform: "uppercase" }}>Payee UPI ID</div>
+                      <div className="upi-id-text">{UPI_ID}</div>
+                    </div>
+                    <button
+                      type="button"
+                      className={`upi-copy-btn ${copiedUpi ? "copied" : ""}`}
+                      onClick={handleCopyUpi}
+                    >
+                      {copiedUpi ? <Check size={14} /> : <Copy size={14} />}
+                      {copiedUpi ? "Copied!" : "Copy ID"}
+                    </button>
+                  </div>
+
+                  <div style={{ fontSize: "0.85rem", color: "var(--color-secondary)", background: "var(--color-bg-soft)", padding: 12, borderRadius: "var(--radius-md)", border: "1px solid var(--color-border)" }}>
+                    <b>How to pay manually:</b>
+                    <ol style={{ margin: "6px 0 0 18px", padding: 0, fontSize: "0.83rem" }}>
+                      <li>Open any UPI app (GPay, PhonePe, Paytm).</li>
+                      <li>Send exactly <b>₹79</b> to <b>{UPI_ID}</b>.</li>
+                      <li>Click "Confirm Payment & Unlock Ebook" below.</li>
+                    </ol>
+                  </div>
+                </div>
+              )}
+
+              {/* UPI ID quick copy bar under QR tab as well */}
+              {paymentOption === "qr" && (
+                <div className="upi-id-box">
+                  <div>
+                    <div style={{ fontSize: "0.75rem", color: "var(--color-muted)" }}>UPI ID</div>
+                    <div className="upi-id-text">{UPI_ID}</div>
+                  </div>
+                  <button
+                    type="button"
+                    className={`upi-copy-btn ${copiedUpi ? "copied" : ""}`}
+                    onClick={handleCopyUpi}
+                  >
+                    {copiedUpi ? <Check size={14} /> : <Copy size={14} />}
+                    {copiedUpi ? "Copied!" : "Copy UPI ID"}
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Step 3: Confirmation / Access Activation */}
+            <div className="upi-pay-card">
+              <div className="checkout-step">
+                <span className="step-num">3</span>
+                <span>Confirm & Get Instant Ebook Access</span>
+              </div>
+
+              <div className="form-group">
+                <label>12-Digit UPI Ref / UTR No. (Optional)</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="e.g. 429381749201 (from your payment receipt)"
+                  value={utr}
+                  onChange={(e) => setUtr(e.target.value)}
+                />
+                <span style={{ fontSize: "0.8rem", color: "var(--color-muted)" }}>
+                  Enter transaction reference or click below to unlock directly after payment.
+                </span>
+              </div>
+
+              <button
+                type="submit"
+                className="btn-primary btn-accent"
+                style={{ width: "100%", padding: 16, fontSize: "1.05rem", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}
+              >
+                <Check size={18} /> I Have Paid ₹79 — Unlock Ebook Now →
+              </button>
+            </div>
+
+            <p style={{ fontSize: "0.82rem", color: "var(--color-muted)", textAlign: "center", margin: 0 }}>
+              Instant lifetime access • 30-Day Money-Back Guarantee • 256-bit Secure
             </p>
           </form>
         </div>
@@ -1013,6 +1208,14 @@ function CheckoutPage({ navigate, setUnlocked }) {
 
 // 9. THANK YOU / SUCCESS PAGE
 function ThankYouPage({ navigate }) {
+  const customerData = (() => {
+    try {
+      return JSON.parse(localStorage.getItem("ai_income_customer")) || {};
+    } catch {
+      return {};
+    }
+  })();
+
   return (
     <div className="section animate-page" style={{ minHeight: "80vh", display: "flex", alignItems: "center" }}>
       <div className="container">
@@ -1022,26 +1225,32 @@ function ThankYouPage({ navigate }) {
           </div>
 
           <div>
-            <span className="eyebrow">ORDER CONFIRMED</span>
-            <h1 style={{ fontSize: "2.5rem", margin: "8px 0" }}>You're In.</h1>
-            <p>Your AI Income journey starts now. Your access has been unlocked.</p>
+            <span className="eyebrow">ORDER CONFIRMED & ACCESS GRANTED</span>
+            <h1 style={{ fontSize: "2.5rem", margin: "8px 0" }}>You're In!</h1>
+            <p>Your payment of ₹79 has been confirmed. All 15 chapters and prompt libraries are now fully unlocked.</p>
           </div>
 
           <div style={{ width: "100%", padding: "20px", background: "var(--color-bg-soft)", border: "1px solid var(--color-border)", borderRadius: "var(--radius-md)", textAlign: "left" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, color: "#059669", fontWeight: 600, fontSize: "0.9rem" }}>
-              <Check size={16} /> Payment Successful (₹299)
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, color: "#059669", fontWeight: 700, fontSize: "0.95rem" }}>
+              <Check size={18} /> Payment Successful (₹79 to bhushan.shimpi1@ybl)
             </div>
-            <div style={{ fontSize: "0.88rem", color: "var(--color-secondary)" }}>
-              Access details and your receipt have been sent to your email.
+            <div style={{ fontSize: "0.88rem", color: "var(--color-secondary)", display: "flex", flexDirection: "column", gap: 6 }}>
+              {customerData.name && (
+                <div><b>Customer:</b> {customerData.name} ({customerData.email})</div>
+              )}
+              {customerData.utr && (
+                <div><b>Reference:</b> {customerData.utr}</div>
+              )}
+              <div><b>Access Status:</b> <span style={{ color: "#059669", fontWeight: 600 }}>Active (Lifetime Access Unlocked)</span></div>
             </div>
           </div>
 
           <div style={{ display: "flex", gap: 16, width: "100%", flexWrap: "wrap", justifyContent: "center" }}>
-            <button className="btn-primary btn-accent" style={{ flex: 1, minWidth: 200 }} onClick={() => navigate("chapter-1")}>
+            <button className="btn-primary btn-accent" style={{ flex: 1, minWidth: 220 }} onClick={() => navigate("chapter-1")}>
               Start Reading Introduction →
             </button>
             <button className="btn-secondary" style={{ flex: 1, minWidth: 200 }} onClick={() => navigate("chapters")}>
-              View Chapter Directory
+              Browse All 15 Chapters
             </button>
           </div>
         </div>
