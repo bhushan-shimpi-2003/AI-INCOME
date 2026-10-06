@@ -541,7 +541,7 @@ export default function AdminPage({ navigate }) {
   // AUTHENTICATION GATE
   if (!isAuthed) {
     return (
-      <div className="section animate-page" style={{ minHeight: "85vh", display: "flex", alignItems: "center" }}>
+      <div className="section animate-page" style={{ minHeight: "100vh", display: "flex", alignItems: "center" }}>
         <div className="container">
           <div className="auth-box animate-fade-up" style={{ maxWidth: 440 }}>
             <div className="auth-header">
@@ -838,37 +838,6 @@ export default function AdminPage({ navigate }) {
                     <span className="badge-neutral">Zero Refunds</span>
                     <span>30-Day guarantee status</span>
                   </div>
-                </div>
-              </div>
-
-              {/* SECONDARY ANALYTICS METRICS */}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16, marginTop: 20 }}>
-                <div style={{ padding: "16px 20px", background: "#FFFFFF", border: "1px solid var(--color-border)", borderRadius: "var(--radius-md)" }}>
-                  <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--color-muted)", letterSpacing: "0.05em" }}>AVERAGE ORDER VALUE</div>
-                  <div style={{ fontSize: "1.4rem", fontWeight: 800, color: "var(--color-primary)", marginTop: 4 }}>₹{settings.price}</div>
-                  <div style={{ fontSize: "0.78rem", color: "#059669", marginTop: 4 }}>✓ Fixed direct price</div>
-                </div>
-
-                <div style={{ padding: "16px 20px", background: "#FFFFFF", border: "1px solid var(--color-border)", borderRadius: "var(--radius-md)" }}>
-                  <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--color-muted)", letterSpacing: "0.05em" }}>NET PROFIT MARGIN</div>
-                  <div style={{ fontSize: "1.4rem", fontWeight: 800, color: "#059669", marginTop: 4 }}>100%</div>
-                  <div style={{ fontSize: "0.78rem", color: "var(--color-secondary)", marginTop: 4 }}>Zero third-party commissions</div>
-                </div>
-
-                <div style={{ padding: "16px 20px", background: "#FFFFFF", border: "1px solid var(--color-border)", borderRadius: "var(--radius-md)" }}>
-                  <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--color-muted)", letterSpacing: "0.05em" }}>PEAK DAY VOLUME</div>
-                  <div style={{ fontSize: "1.4rem", fontWeight: 800, color: "var(--color-primary)", marginTop: 4 }}>
-                    {Math.max(...chartDays.map((d) => d.count), 0)} sales
-                  </div>
-                  <div style={{ fontSize: "0.78rem", color: "var(--color-secondary)", marginTop: 4 }}>In last {dateRange} days</div>
-                </div>
-
-                <div style={{ padding: "16px 20px", background: "#FFFFFF", border: "1px solid var(--color-border)", borderRadius: "var(--radius-md)" }}>
-                  <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--color-muted)", letterSpacing: "0.05em" }}>FEES SAVED</div>
-                  <div style={{ fontSize: "1.4rem", fontWeight: 800, color: "#4F46E5", marginTop: 4 }}>
-                    {formatINR(Math.round(kpis.totalRevenue * 0.03))}
-                  </div>
-                  <div style={{ fontSize: "0.78rem", color: "var(--color-secondary)", marginTop: 4 }}>Saved vs standard gateways</div>
                 </div>
               </div>
 

@@ -1945,12 +1945,14 @@ export default function App() {
     }
   };
 
+  const isAdminRoute = route === "admin" || route === "dashboard";
+
   return (
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
-      <div className="reading-progress-bar" style={{ width: `${scrollProgress}%` }} />
-      <Header currentRoute={route} navigate={navigate} unlocked={unlocked} siteSettings={siteSettings} />
-      <div style={{ flex: 1 }}>{renderContent()}</div>
-      <Footer navigate={navigate} siteSettings={siteSettings} />
+      {!isAdminRoute && <div className="reading-progress-bar" style={{ width: `${scrollProgress}%` }} />}
+      {!isAdminRoute && <Header currentRoute={route} navigate={navigate} unlocked={unlocked} siteSettings={siteSettings} />}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>{renderContent()}</div>
+      {!isAdminRoute && <Footer navigate={navigate} siteSettings={siteSettings} />}
     </div>
   );
 }
