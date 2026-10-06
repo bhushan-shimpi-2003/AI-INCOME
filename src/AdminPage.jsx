@@ -731,17 +731,6 @@ export default function AdminPage({ navigate }) {
                     Executive overview of earnings, units sold, growth trajectory, and customer volume.
                   </p>
                 </div>
-                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                  <button className="btn-secondary" onClick={() => setActiveTab("daily_sales")}>
-                    <Calendar size={15} /> Daily Sales Report
-                  </button>
-                  <button className="btn-secondary" onClick={() => setActiveTab("payments")}>
-                    <CreditCard size={15} /> Customer Payments
-                  </button>
-                  <button className="btn-primary btn-accent" onClick={() => setActiveTab("manual_sale")}>
-                    <Plus size={15} /> Record Sale
-                  </button>
-                </div>
               </div>
 
               {/* Data Mode Switcher */}
