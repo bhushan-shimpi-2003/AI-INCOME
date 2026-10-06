@@ -693,8 +693,6 @@ export default function AdminPage({ navigate }) {
             })}
           </nav>
 
-          <div style={{ flex: 1 }} />
-
           <div className="admin-sidebar-footer">
             <div className="admin-upi-status-pill">
               <span className="live-dot" />
@@ -703,23 +701,28 @@ export default function AdminPage({ navigate }) {
               </div>
             </div>
 
-            <button
-              className="admin-sidebar-action-btn"
-              onClick={() => navigate("chapter-1")}
-            >
-              <ExternalLink size={15} /> Open Live Ebook
-            </button>
-            <button
-              className="admin-sidebar-action-btn"
-              onClick={() => navigate("home")}
-            >
-              <Eye size={15} /> View Public Store
-            </button>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+              <button
+                className="admin-sidebar-action-btn"
+                onClick={() => navigate("chapter-1")}
+                title="Open Live Digital Ebook Reader"
+              >
+                <ExternalLink size={13} /> Reader
+              </button>
+              <button
+                className="admin-sidebar-action-btn"
+                onClick={() => navigate("home")}
+                title="View Public Storefront"
+              >
+                <Eye size={13} /> Store
+              </button>
+            </div>
+
             <button
               className="admin-sidebar-action-btn danger"
               onClick={handleAdminLogout}
             >
-              <LogOut size={15} /> Exit Admin Session
+              <LogOut size={13} /> Exit Admin
             </button>
           </div>
         </aside>
