@@ -613,9 +613,11 @@ export default function AdminPage({ navigate }) {
 
   // NAVIGATION TABS CONFIG
   const navTabs = [
-    { id: "dashboard", label: "Dashboard & Sales", icon: LayoutDashboard },
+    { id: "dashboard", label: "Analytics Overview", icon: LayoutDashboard },
+    { id: "daily_sales", label: "Daily Sales Report", icon: Calendar },
+    { id: "payments", label: "Customer Payments & Logs", icon: CreditCard, badge: `${orders.length}` },
     { id: "chapters", label: "Ebook Chapter Editor", icon: BookOpen, badge: `${chapters.length}` },
-    { id: "pricing", label: "UPI & Pricing Settings", icon: CreditCard },
+    { id: "pricing", label: "UPI & Pricing Settings", icon: IndianRupee },
     { id: "details", label: "Ebook Details & Meta", icon: FileText },
     { id: "readers", label: "Readers & Access", icon: Users, badge: `${readerEmails.length}` },
     { id: "manual_sale", label: "Record Manual Sale", icon: PlusCircle },
@@ -732,19 +734,22 @@ export default function AdminPage({ navigate }) {
 
         {/* MAIN WORKSPACE CONTENT */}
         <main className="admin-workspace-pane">
-          {/* TAB 1: DASHBOARD & SALES */}
+          {/* TAB 1: ANALYTICS DASHBOARD ONLY */}
           {activeTab === "dashboard" && (
             <div className="animate-fade">
               <div className="admin-pane-header">
                 <div>
-                  <h1 className="admin-pane-title">Revenue & Day-Wise Sales Analytics</h1>
+                  <h1 className="admin-pane-title">Revenue & Sales Performance Analytics</h1>
                   <p className="admin-pane-desc">
-                    Live UPI receipts tracking, daily copies sold, and customer transaction logs.
+                    Executive overview of earnings, units sold, growth trajectory, and customer volume.
                   </p>
                 </div>
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                  <button className="btn-secondary" onClick={handleExportCSV}>
-                    <Download size={15} /> Export CSV
+                  <button className="btn-secondary" onClick={() => setActiveTab("daily_sales")}>
+                    <Calendar size={15} /> Daily Sales Report
+                  </button>
+                  <button className="btn-secondary" onClick={() => setActiveTab("payments")}>
+                    <CreditCard size={15} /> Customer Payments
                   </button>
                   <button className="btn-primary btn-accent" onClick={() => setActiveTab("manual_sale")}>
                     <Plus size={15} /> Record Sale
@@ -833,16 +838,47 @@ export default function AdminPage({ navigate }) {
                 </div>
               </div>
 
+              {/* SECONDARY ANALYTICS METRICS */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16, marginTop: 20 }}>
+                <div style={{ padding: "16px 20px", background: "#FFFFFF", border: "1px solid var(--color-border)", borderRadius: "var(--radius-md)" }}>
+                  <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--color-muted)", letterSpacing: "0.05em" }}>AVERAGE ORDER VALUE</div>
+                  <div style={{ fontSize: "1.4rem", fontWeight: 800, color: "var(--color-primary)", marginTop: 4 }}>₹{settings.price}</div>
+                  <div style={{ fontSize: "0.78rem", color: "#059669", marginTop: 4 }}>✓ Fixed direct price</div>
+                </div>
+
+                <div style={{ padding: "16px 20px", background: "#FFFFFF", border: "1px solid var(--color-border)", borderRadius: "var(--radius-md)" }}>
+                  <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--color-muted)", letterSpacing: "0.05em" }}>NET PROFIT MARGIN</div>
+                  <div style={{ fontSize: "1.4rem", fontWeight: 800, color: "#059669", marginTop: 4 }}>100%</div>
+                  <div style={{ fontSize: "0.78rem", color: "var(--color-secondary)", marginTop: 4 }}>Zero third-party commissions</div>
+                </div>
+
+                <div style={{ padding: "16px 20px", background: "#FFFFFF", border: "1px solid var(--color-border)", borderRadius: "var(--radius-md)" }}>
+                  <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--color-muted)", letterSpacing: "0.05em" }}>PEAK DAY VOLUME</div>
+                  <div style={{ fontSize: "1.4rem", fontWeight: 800, color: "var(--color-primary)", marginTop: 4 }}>
+                    {Math.max(...chartDays.map((d) => d.count), 0)} sales
+                  </div>
+                  <div style={{ fontSize: "0.78rem", color: "var(--color-secondary)", marginTop: 4 }}>In last {dateRange} days</div>
+                </div>
+
+                <div style={{ padding: "16px 20px", background: "#FFFFFF", border: "1px solid var(--color-border)", borderRadius: "var(--radius-md)" }}>
+                  <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--color-muted)", letterSpacing: "0.05em" }}>FEES SAVED</div>
+                  <div style={{ fontSize: "1.4rem", fontWeight: 800, color: "#4F46E5", marginTop: 4 }}>
+                    {formatINR(Math.round(kpis.totalRevenue * 0.03))}
+                  </div>
+                  <div style={{ fontSize: "0.78rem", color: "var(--color-secondary)", marginTop: 4 }}>Saved vs standard gateways</div>
+                </div>
+              </div>
+
               {/* DAY-WISE SALES & INCOME CHART */}
               <div className="admin-card" style={{ marginTop: 24 }}>
                 <div className="admin-card-header">
                   <div>
                     <h2 className="admin-card-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
                       <BarChart3 size={20} color="var(--color-accent)" />
-                      Day-Wise Income & Sales Breakdown
+                      Sales Trajectory & Revenue Chart
                     </h2>
                     <p className="admin-card-desc">
-                      Daily revenue trend. Hover or tap any bar to see sales count and earnings.
+                      Interactive timeline visualization. Hover or tap any bar to inspect daily numbers.
                     </p>
                   </div>
 
@@ -913,6 +949,121 @@ export default function AdminPage({ navigate }) {
                 </div>
               </div>
 
+              {/* QUICK JUMP CARDS TO SEPARATE PAGES */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16, marginTop: 24 }}>
+                <div
+                  className="admin-card"
+                  style={{ padding: 24, cursor: "pointer" }}
+                  onClick={() => setActiveTab("daily_sales")}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+                    <div style={{ width: 40, height: 40, borderRadius: "var(--radius-md)", background: "#FEF3C7", color: "#D97706", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <Calendar size={20} />
+                    </div>
+                    <span style={{ fontSize: "0.8rem", color: "var(--color-accent)", fontWeight: 700 }}>Open Page →</span>
+                  </div>
+                  <h3 style={{ fontSize: "1.1rem", margin: "0 0 6px 0", color: "var(--color-primary)" }}>Daily Sales Log Table</h3>
+                  <p style={{ fontSize: "0.86rem", color: "var(--color-secondary)", margin: 0 }}>
+                    View complete day-by-day itemized table showing date-wise volume, earnings, and peak status.
+                  </p>
+                </div>
+
+                <div
+                  className="admin-card"
+                  style={{ padding: 24, cursor: "pointer" }}
+                  onClick={() => setActiveTab("payments")}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+                    <div style={{ width: 40, height: 40, borderRadius: "var(--radius-md)", background: "#ECFDF5", color: "#059669", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <CreditCard size={20} />
+                    </div>
+                    <span style={{ fontSize: "0.8rem", color: "var(--color-accent)", fontWeight: 700 }}>Open Page →</span>
+                  </div>
+                  <h3 style={{ fontSize: "1.1rem", margin: "0 0 6px 0", color: "var(--color-primary)" }}>Customer Payments & Logs</h3>
+                  <p style={{ fontSize: "0.86rem", color: "var(--color-secondary)", margin: 0 }}>
+                    Search, verify, and copy individual buyer records, timestamps, Order IDs, and export CSV.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 2: SEPARATE DAILY SALES REPORT PAGE */}
+          {activeTab === "daily_sales" && (
+            <div className="animate-fade">
+              <div className="admin-pane-header">
+                <div>
+                  <h1 className="admin-pane-title">Daily Sales Report (Day-Wise Summary)</h1>
+                  <p className="admin-pane-desc">
+                    Itemized daily performance numbers, copy sales volume, and day-by-day revenue generated.
+                  </p>
+                </div>
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+                  <div className="admin-chart-filters">
+                    <button
+                      className={`chart-filter-btn ${dateRange === "7" ? "active" : ""}`}
+                      onClick={() => setDateRange("7")}
+                    >
+                      7 Days
+                    </button>
+                    <button
+                      className={`chart-filter-btn ${dateRange === "14" ? "active" : ""}`}
+                      onClick={() => setDateRange("14")}
+                    >
+                      14 Days
+                    </button>
+                    <button
+                      className={`chart-filter-btn ${dateRange === "30" ? "active" : ""}`}
+                      onClick={() => setDateRange("30")}
+                    >
+                      30 Days
+                    </button>
+                    <button
+                      className={`chart-filter-btn ${dateRange === "all" ? "active" : ""}`}
+                      onClick={() => setDateRange("all")}
+                    >
+                      All Time
+                    </button>
+                  </div>
+                  <button className="btn-secondary" onClick={() => setActiveTab("payments")}>
+                    <CreditCard size={15} /> Customer Payments →
+                  </button>
+                </div>
+              </div>
+
+              {/* Daily Sales Telemetry Summary Strip */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16, marginTop: 20 }}>
+                <div style={{ padding: "16px 20px", background: "#FFFFFF", border: "1px solid var(--color-border)", borderRadius: "var(--radius-md)" }}>
+                  <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--color-muted)", letterSpacing: "0.05em" }}>TOTAL DAYS TRACKED</div>
+                  <div style={{ fontSize: "1.4rem", fontWeight: 800, color: "var(--color-primary)", marginTop: 4 }}>{daysAnalytics.length} days</div>
+                  <div style={{ fontSize: "0.78rem", color: "var(--color-secondary)", marginTop: 4 }}>Continuous performance history</div>
+                </div>
+
+                <div style={{ padding: "16px 20px", background: "#FFFFFF", border: "1px solid var(--color-border)", borderRadius: "var(--radius-md)" }}>
+                  <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--color-muted)", letterSpacing: "0.05em" }}>AVERAGE DAILY INCOME</div>
+                  <div style={{ fontSize: "1.4rem", fontWeight: 800, color: "#059669", marginTop: 4 }}>
+                    {formatINR(daysAnalytics.length > 0 ? Math.round(daysAnalytics.reduce((sum, d) => sum + d.revenue, 0) / daysAnalytics.length) : 0)}
+                  </div>
+                  <div style={{ fontSize: "0.78rem", color: "#059669", marginTop: 4 }}>Per day average</div>
+                </div>
+
+                <div style={{ padding: "16px 20px", background: "#FFFFFF", border: "1px solid var(--color-border)", borderRadius: "var(--radius-md)" }}>
+                  <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--color-muted)", letterSpacing: "0.05em" }}>PERIOD VOLUME</div>
+                  <div style={{ fontSize: "1.4rem", fontWeight: 800, color: "var(--color-primary)", marginTop: 4 }}>
+                    {daysAnalytics.reduce((sum, d) => sum + d.count, 0)} copies
+                  </div>
+                  <div style={{ fontSize: "0.78rem", color: "var(--color-secondary)", marginTop: 4 }}>Total sold in this timeframe</div>
+                </div>
+
+                <div style={{ padding: "16px 20px", background: "#FFFFFF", border: "1px solid var(--color-border)", borderRadius: "var(--radius-md)" }}>
+                  <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--color-muted)", letterSpacing: "0.05em" }}>PERIOD EARNINGS</div>
+                  <div style={{ fontSize: "1.4rem", fontWeight: 800, color: "#4F46E5", marginTop: 4 }}>
+                    {formatINR(daysAnalytics.reduce((sum, d) => sum + d.revenue, 0))}
+                  </div>
+                  <div style={{ fontSize: "0.78rem", color: "var(--color-secondary)", marginTop: 4 }}>Deposited directly to UPI</div>
+                </div>
+              </div>
+
               {/* DAY-WISE TABLE */}
               <div className="admin-card" style={{ marginTop: 24 }}>
                 <div className="admin-card-header">
@@ -973,13 +1124,57 @@ export default function AdminPage({ navigate }) {
                   </table>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* TAB 3: SEPARATE CUSTOMER PAYMENTS & TRANSACTION LOGS PAGE */}
+          {activeTab === "payments" && (
+            <div className="animate-fade">
+              <div className="admin-pane-header">
+                <div>
+                  <h1 className="admin-pane-title">Customer Payments & Transaction Logs</h1>
+                  <p className="admin-pane-desc">
+                    Comprehensive audit trail of all customer purchases, verified UPI receipts, and buyer contact details.
+                  </p>
+                </div>
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                  <button className="btn-secondary" onClick={handleExportCSV}>
+                    <Download size={15} /> Export CSV Spreadsheet
+                  </button>
+                  <button className="btn-primary btn-accent" onClick={() => setActiveTab("manual_sale")}>
+                    <Plus size={15} /> Record Direct Sale
+                  </button>
+                </div>
+              </div>
+
+              {/* Data Mode Switcher */}
+              <div className="admin-control-bar" style={{ marginTop: 20 }}>
+                <div className="admin-filter-pills">
+                  <button
+                    className={`pill-btn ${filterMode === "all" ? "active" : ""}`}
+                    onClick={() => setFilterMode("all")}
+                  >
+                    All Purchases ({orders.length})
+                  </button>
+                  <button
+                    className={`pill-btn ${filterMode === "live" ? "active" : ""}`}
+                    onClick={() => setFilterMode("live")}
+                  >
+                    Live Web Purchases ({orders.filter((o) => o.type === "live").length})
+                  </button>
+                </div>
+
+                <div style={{ fontSize: "0.82rem", color: "var(--color-muted)" }}>
+                  Target UPI: <b>{settings.upiId}</b> • Selling Price: <b>₹{settings.price}</b>
+                </div>
+              </div>
 
               {/* PAYMENTS TRANSACTIONS TABLE */}
-              <div className="admin-card" style={{ marginTop: 24 }}>
+              <div className="admin-card" style={{ marginTop: 20 }}>
                 <div className="admin-card-header" style={{ flexWrap: "wrap", gap: 16 }}>
                   <div>
-                    <h2 className="admin-card-title">Customer Payments & Transaction Log</h2>
-                    <p className="admin-card-desc">Individual buyer records and payment verification.</p>
+                    <h2 className="admin-card-title">Customer Ledger ({filteredPayments.length} records)</h2>
+                    <p className="admin-card-desc">Searchable database of customer transactions and verified receipts.</p>
                   </div>
                   <div className="admin-search-wrap">
                     <Search size={16} className="search-icon" />
@@ -1010,7 +1205,7 @@ export default function AdminPage({ navigate }) {
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredPayments.slice(0, 50).map((order) => {
+                      {filteredPayments.slice(0, 60).map((order) => {
                         const isLive = order.type === "live";
                         return (
                           <tr key={order.id} className={isLive ? "live-order-row" : ""}>
@@ -1022,6 +1217,7 @@ export default function AdminPage({ navigate }) {
                                 <button
                                   className="copy-btn-tiny"
                                   onClick={() => copyToClipboard(order.id, order.id)}
+                                  title="Copy Order ID"
                                 >
                                   {copiedId === order.id ? <Check size={12} color="#059669" /> : <Copy size={12} />}
                                 </button>
@@ -1060,6 +1256,11 @@ export default function AdminPage({ navigate }) {
                       })}
                     </tbody>
                   </table>
+                </div>
+
+                <div style={{ padding: "12px 20px", background: "var(--color-bg-soft)", borderTop: "1px solid var(--color-border-subtle)", display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.82rem", color: "var(--color-muted)" }}>
+                  <span>Showing {Math.min(filteredPayments.length, 60)} of {filteredPayments.length} entries</span>
+                  <span>Instant verified UPI receipts</span>
                 </div>
               </div>
             </div>
