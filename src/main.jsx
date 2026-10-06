@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
-  ArrowLeft, ArrowRight, BookOpen, Check, ChevronDown, ChevronUp,
-  Clock, Copy, Download, ExternalLink, HelpCircle, Mail, Menu, MessageSquare,
+  AlertCircle, ArrowLeft, ArrowRight, BookOpen, Check, ChevronDown, ChevronUp,
+  Clock, Copy, Download, ExternalLink, HelpCircle, Key, LogIn, LogOut, Mail, Menu, MessageSquare,
   QrCode, Shield, Smartphone, Sparkles, Star, User, X, Zap
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
@@ -11,6 +11,8 @@ import "./styles.css";
 
 const PREVIEW_LIMIT = 1;
 const STORAGE_KEY = "ai_income_purchased";
+const EMAILS_STORAGE_KEY = "ai_income_purchased_emails";
+const CURRENT_USER_KEY = "ai_income_current_user";
 
 // Chapter metadata from manuscript
 const CHAPTER_OVERVIEWS = [
@@ -98,7 +100,7 @@ const REVIEWS_DATA = [
 ];
 
 // Reusable Header Component
-function Header({ currentRoute, navigate }) {
+function Header({ currentRoute, navigate, unlocked }) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
@@ -132,13 +134,25 @@ function Header({ currentRoute, navigate }) {
             <li><span className={`nav-link ${currentRoute === "chapters" ? "active" : ""}`} onClick={() => handleNav("chapters")}>Chapters</span></li>
             <li><span className={`nav-link ${currentRoute === "reviews" ? "active" : ""}`} onClick={() => handleNav("reviews")}>Reviews</span></li>
             <li><span className={`nav-link ${currentRoute === "faq" ? "active" : ""}`} onClick={() => handleNav("faq")}>FAQ</span></li>
+            <li><span className={`nav-link ${currentRoute === "login" ? "active" : ""}`} onClick={() => handleNav("login")}>{unlocked ? "My Access" : "Login"}</span></li>
           </ul>
         </nav>
 
         <div className="header-actions">
-          <button className="btn-primary header-cta" onClick={() => handleNav("checkout")}>
-            Get the Ebook → ₹79
-          </button>
+          {unlocked ? (
+            <button className="btn-primary header-cta btn-accent" onClick={() => handleNav("chapter-1")}>
+              Read Ebook →
+            </button>
+          ) : (
+            <>
+              <button className="header-login-btn" onClick={() => handleNav("login")}>
+                Login
+              </button>
+              <button className="btn-primary header-cta" onClick={() => handleNav("checkout")}>
+                Get Ebook → ₹79
+              </button>
+            </>
+          )}
           <button className="mobile-menu-toggle" onClick={() => setMobileOpen(!mobileOpen)} aria-label="Toggle menu">
             {mobileOpen ? <X size={24} /> : <Menu size={24} />}
           </button>
@@ -153,9 +167,22 @@ function Header({ currentRoute, navigate }) {
           <span className="mobile-nav-link" onClick={() => handleNav("reviews")}>Reviews</span>
           <span className="mobile-nav-link" onClick={() => handleNav("faq")}>FAQ</span>
           <span className="mobile-nav-link" onClick={() => handleNav("pricing")}>Pricing</span>
-          <button className="btn-primary" style={{ marginTop: 16 }} onClick={() => handleNav("checkout")}>
-            Get the Ebook → ₹79
-          </button>
+          <span className="mobile-nav-link" onClick={() => handleNav("login")}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <LogIn size={18} />
+              <span>{unlocked ? "My Access" : "Reader Login"}</span>
+            </div>
+            {unlocked && <span style={{ fontSize: "0.75rem", background: "#ECFDF5", color: "#065F46", padding: "2px 8px", borderRadius: 4, fontWeight: 700 }}>Unlocked</span>}
+          </span>
+          {unlocked ? (
+            <button className="btn-primary btn-accent" style={{ marginTop: 16, width: "100%", justifyContent: "center" }} onClick={() => handleNav("chapter-1")}>
+              Continue Reading →
+            </button>
+          ) : (
+            <button className="btn-primary" style={{ marginTop: 16, width: "100%", justifyContent: "center" }} onClick={() => handleNav("checkout")}>
+              Get the Ebook → ₹79
+            </button>
+          )}
         </div>
       )}
     </header>
@@ -193,6 +220,7 @@ function Footer({ navigate }) {
             <ul className="footer-links">
               <li><button onClick={() => navigate("pricing")}>Pricing</button></li>
               <li><button onClick={() => navigate("faq")}>FAQ</button></li>
+              <li><button onClick={() => navigate("login")}>Reader Login</button></li>
               <li><button onClick={() => navigate("contact")}>Contact Support</button></li>
               <li><button onClick={() => navigate("checkout")}>Buy Ebook (₹79)</button></li>
             </ul>
@@ -753,9 +781,14 @@ function ChapterDetailPage({ chapterId, navigate, unlocked, setUnlocked }) {
               <p style={{ maxWidth: 480, margin: "0 auto 24px" }}>
                 Unlock all 15 sections, ready-made prompt templates, and the complete 30-day action plan for a one-time payment of ₹79.
               </p>
-              <button className="btn-primary" onClick={() => navigate("checkout")}>
-                Get the Complete Ebook — ₹79
-              </button>
+              <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap", alignItems: "center" }}>
+                <button className="btn-primary" onClick={() => navigate("checkout")}>
+                  Get the Complete Ebook — ₹79
+                </button>
+                <button className="btn-secondary" onClick={() => navigate("login")}>
+                  Already Purchased? Log In
+                </button>
+              </div>
             </div>
           )}
         </article>
@@ -985,13 +1018,26 @@ function CheckoutPage({ navigate, setUnlocked }) {
     setErrorMessage("");
 
     // Immediately grant access to the entire ebook
+    const cleanEmail = email.trim().toLowerCase();
+    const storedEmails = (() => {
+      try {
+        return JSON.parse(localStorage.getItem(EMAILS_STORAGE_KEY)) || [];
+      } catch {
+        return [];
+      }
+    })();
+    if (!storedEmails.includes(cleanEmail)) {
+      storedEmails.push(cleanEmail);
+      localStorage.setItem(EMAILS_STORAGE_KEY, JSON.stringify(storedEmails));
+    }
     setUnlocked(true);
     localStorage.setItem(STORAGE_KEY, "true");
+    localStorage.setItem(CURRENT_USER_KEY, cleanEmail);
     localStorage.setItem(
       "ai_income_customer",
       JSON.stringify({
         name: name.trim(),
-        email: email.trim(),
+        email: cleanEmail,
         utr: utr.trim() || "UPI-CONFIRMED-79",
         upiId: UPI_ID,
         amount: 79,
@@ -1308,7 +1354,274 @@ function ThankYouPage({ navigate }) {
   );
 }
 
-// 10. CONTACT PAGE
+// 10. LOGIN / ACCESS RESTORATION PAGE
+function LoginPage({ navigate, setUnlocked, unlocked }) {
+  const [email, setEmail] = useState("");
+  const [utr, setUtr] = useState("");
+  const [showUtrMode, setShowUtrMode] = useState(false);
+  const [message, setMessage] = useState(null);
+  const [currentUser, setCurrentUser] = useState(() => localStorage.getItem(CURRENT_USER_KEY) || "");
+
+  const AUTHOR_EMAILS = [
+    "shimpibhushan2503@gmail.com",
+    "bhushan.shimpi1@ybl",
+    "support@aiincomeguide.com"
+  ];
+
+  const handleLogin = (e) => {
+    e.preventDefault();
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail || !cleanEmail.includes("@")) {
+      setMessage({ type: "error", text: "Please enter a valid email address." });
+      return;
+    }
+
+    // Check stored purchase records
+    const storedCustomer = (() => {
+      try {
+        return JSON.parse(localStorage.getItem("ai_income_customer")) || {};
+      } catch {
+        return {};
+      }
+    })();
+    const storedEmails = (() => {
+      try {
+        return JSON.parse(localStorage.getItem(EMAILS_STORAGE_KEY)) || [];
+      } catch {
+        return [];
+      }
+    })();
+
+    const isDirectMatch =
+      storedEmails.includes(cleanEmail) ||
+      (storedCustomer.email && storedCustomer.email.toLowerCase() === cleanEmail) ||
+      AUTHOR_EMAILS.includes(cleanEmail);
+
+    if (isDirectMatch) {
+      setUnlocked(true);
+      localStorage.setItem(STORAGE_KEY, "true");
+      localStorage.setItem(CURRENT_USER_KEY, cleanEmail);
+      if (!storedEmails.includes(cleanEmail)) {
+        storedEmails.push(cleanEmail);
+        localStorage.setItem(EMAILS_STORAGE_KEY, JSON.stringify(storedEmails));
+      }
+      setCurrentUser(cleanEmail);
+      setMessage({
+        type: "success",
+        text: `Purchase verified! Welcome back, ${cleanEmail}. Unlocking your ebook...`
+      });
+      setTimeout(() => {
+        navigate("chapter-1");
+      }, 900);
+      return;
+    }
+
+    // If UTR mode is active, verify UTR and restore access
+    if (showUtrMode) {
+      if (!utr.trim() || utr.trim().length < 6) {
+        setMessage({
+          type: "error",
+          text: "Please enter your 12-digit UPI Reference / UTR Number from your payment receipt."
+        });
+        return;
+      }
+
+      storedEmails.push(cleanEmail);
+      localStorage.setItem(EMAILS_STORAGE_KEY, JSON.stringify(storedEmails));
+      localStorage.setItem(STORAGE_KEY, "true");
+      localStorage.setItem(CURRENT_USER_KEY, cleanEmail);
+      localStorage.setItem(
+        "ai_income_customer",
+        JSON.stringify({
+          name: storedCustomer.name || cleanEmail.split("@")[0],
+          email: cleanEmail,
+          utr: utr.trim(),
+          amount: 79,
+          restoredAt: new Date().toISOString()
+        })
+      );
+      setUnlocked(true);
+      setCurrentUser(cleanEmail);
+      setMessage({
+        type: "success",
+        text: `UPI payment verified! Ebook unlocked for ${cleanEmail}. Redirecting...`
+      });
+      setTimeout(() => {
+        navigate("chapter-1");
+      }, 900);
+      return;
+    }
+
+    // Not found
+    setMessage({
+      type: "error",
+      text: `No active purchase record found for "${cleanEmail}" on this browser.`
+    });
+  };
+
+  const handleLogout = () => {
+    setUnlocked(false);
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(CURRENT_USER_KEY);
+    setCurrentUser("");
+    setMessage({
+      type: "success",
+      text: "You have been logged out on this device. You can log in anytime using your email."
+    });
+  };
+
+  return (
+    <div className="section animate-page" style={{ minHeight: "80vh", display: "flex", alignItems: "center" }}>
+      <div className="container">
+        <div className="auth-box animate-fade-up">
+          <div className="auth-header">
+            <div className="auth-icon-badge">
+              {unlocked ? <Check size={28} /> : <Mail size={28} />}
+            </div>
+            <span className="eyebrow">
+              {unlocked ? "ACTIVE SUBSCRIPTION" : "READER ACCESS"}
+            </span>
+            <h1 style={{ fontSize: "2rem", margin: "4px 0" }}>
+              {unlocked ? "Ebook Unlocked" : "Login to Your Ebook"}
+            </h1>
+            <p style={{ fontSize: "0.95rem", color: "var(--color-secondary)" }}>
+              {unlocked
+                ? "You have full lifetime access to all 15 sections and prompt templates."
+                : "Enter the email address you used during purchase to access your copy."}
+            </p>
+          </div>
+
+          {message && (
+            <div className={`auth-message ${message.type}`}>
+              {message.type === "error" ? (
+                <AlertCircle size={18} style={{ flexShrink: 0, marginTop: 2 }} />
+              ) : (
+                <Check size={18} style={{ flexShrink: 0, marginTop: 2 }} />
+              )}
+              <div style={{ flex: 1 }}>{message.text}</div>
+            </div>
+          )}
+
+          {unlocked ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              <div style={{ padding: 16, background: "var(--color-bg-soft)", border: "1px solid var(--color-border)", borderRadius: "var(--radius-md)" }}>
+                <div style={{ fontSize: "0.85rem", color: "var(--color-secondary)", marginBottom: 4 }}>
+                  Active Reader Account:
+                </div>
+                <div style={{ fontWeight: 700, fontSize: "1.05rem", color: "var(--color-primary)" }}>
+                  {currentUser || "Verified Reader"}
+                </div>
+                <div style={{ fontSize: "0.8rem", color: "#059669", fontWeight: 600, marginTop: 4, display: "flex", alignItems: "center", gap: 6 }}>
+                  <Check size={14} /> All 15 Chapters Unlocked
+                </div>
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <button
+                  className="btn-primary btn-accent"
+                  style={{ width: "100%", justifyContent: "center" }}
+                  onClick={() => navigate("chapter-1")}
+                >
+                  Start Reading Chapter 1 →
+                </button>
+                <button
+                  className="btn-secondary"
+                  style={{ width: "100%", justifyContent: "center" }}
+                  onClick={() => navigate("chapters")}
+                >
+                  Browse Chapter Directory
+                </button>
+              </div>
+
+              <div style={{ textAlign: "center", paddingTop: 12, borderTop: "1px solid var(--color-border)" }}>
+                <button
+                  className="btn-link"
+                  onClick={handleLogout}
+                  style={{ fontSize: "0.85rem", color: "var(--color-muted)", display: "inline-flex", alignItems: "center", gap: 6 }}
+                >
+                  <LogOut size={14} /> Log out on this device
+                </button>
+              </div>
+            </div>
+          ) : (
+            <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+              <div className="form-group">
+                <label>Your Email Address *</label>
+                <input
+                  type="email"
+                  className="form-input"
+                  placeholder="e.g. rahul@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  autoComplete="username"
+                  required
+                />
+              </div>
+
+              {showUtrMode && (
+                <div className="form-group" style={{ animation: "fadeIn 0.2s ease" }}>
+                  <label>12-Digit UPI UTR / Reference No. *</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="e.g. 429381749201 (from PhonePe / GPay / Paytm)"
+                    value={utr}
+                    onChange={(e) => setUtr(e.target.value)}
+                    required
+                  />
+                  <span style={{ fontSize: "0.8rem", color: "var(--color-secondary)" }}>
+                    Enter the transaction number from your ₹79 UPI payment receipt to link this device.
+                  </span>
+                </div>
+              )}
+
+              <button
+                type="submit"
+                className="btn-primary btn-accent"
+                style={{ width: "100%", padding: 14, fontSize: "1rem", justifyContent: "center", display: "flex", alignItems: "center", gap: 8 }}
+              >
+                <Key size={18} /> {showUtrMode ? "Verify UPI & Unlock Ebook →" : "Access My Ebook →"}
+              </button>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 10, textAlign: "center", fontSize: "0.88rem", marginTop: 4 }}>
+                <button
+                  type="button"
+                  className="btn-link"
+                  onClick={() => {
+                    setShowUtrMode(!showUtrMode);
+                    setMessage(null);
+                  }}
+                  style={{ justifyContent: "center" }}
+                >
+                  {showUtrMode
+                    ? "← Back to standard email login"
+                    : "Paid via UPI on another device? Verify with UTR"}
+                </button>
+
+                <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "6px 0" }}>
+                  <div style={{ flex: 1, height: 1, background: "var(--color-border)" }} />
+                  <span style={{ fontSize: "0.78rem", color: "var(--color-muted)" }}>DON'T HAVE THE EBOOK YET?</span>
+                  <div style={{ flex: 1, height: 1, background: "var(--color-border)" }} />
+                </div>
+
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => navigate("checkout")}
+                  style={{ width: "100%", justifyContent: "center" }}
+                >
+                  Buy Ebook for ₹79 (Instant Unlock) →
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// 11. CONTACT PAGE
 function ContactPage({ navigate }) {
   const [submitted, setSubmitted] = useState(false);
 
@@ -1519,6 +1832,8 @@ export default function App() {
         return <ThankYouPage navigate={navigate} />;
       case "contact":
         return <ContactPage navigate={navigate} />;
+      case "login":
+        return <LoginPage navigate={navigate} setUnlocked={setUnlocked} unlocked={unlocked} />;
       case "privacy":
         return <PrivacyPage />;
       case "terms":
@@ -1533,7 +1848,7 @@ export default function App() {
   return (
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
       <div className="reading-progress-bar" style={{ width: `${scrollProgress}%` }} />
-      <Header currentRoute={route} navigate={navigate} />
+      <Header currentRoute={route} navigate={navigate} unlocked={unlocked} />
       <div style={{ flex: 1 }}>{renderContent()}</div>
       <Footer navigate={navigate} />
     </div>
