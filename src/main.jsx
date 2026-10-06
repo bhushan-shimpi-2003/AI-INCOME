@@ -134,15 +134,19 @@ function Header({ currentRoute, navigate, unlocked }) {
             <li><span className={`nav-link ${currentRoute === "chapters" ? "active" : ""}`} onClick={() => handleNav("chapters")}>Chapters</span></li>
             <li><span className={`nav-link ${currentRoute === "reviews" ? "active" : ""}`} onClick={() => handleNav("reviews")}>Reviews</span></li>
             <li><span className={`nav-link ${currentRoute === "faq" ? "active" : ""}`} onClick={() => handleNav("faq")}>FAQ</span></li>
-            <li><span className={`nav-link ${currentRoute === "login" ? "active" : ""}`} onClick={() => handleNav("login")}>{unlocked ? "My Access" : "Login"}</span></li>
           </ul>
         </nav>
 
         <div className="header-actions">
           {unlocked ? (
-            <button className="btn-primary header-cta btn-accent" onClick={() => handleNav("chapter-1")}>
-              Read Ebook →
-            </button>
+            <>
+              <button className="header-login-btn" onClick={() => handleNav("login")}>
+                My Access
+              </button>
+              <button className="btn-primary header-cta btn-accent" onClick={() => handleNav("chapter-1")}>
+                Read Ebook →
+              </button>
+            </>
           ) : (
             <>
               <button className="header-login-btn" onClick={() => handleNav("login")}>
@@ -984,7 +988,6 @@ function PricingPage({ navigate }) {
 function CheckoutPage({ navigate, setUnlocked }) {
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
-  const [utr, setUtr] = useState("");
   const [copiedUpi, setCopiedUpi] = useState(false);
   const [paymentOption, setPaymentOption] = useState("qr"); // "qr" or "intent"
   const [errorMessage, setErrorMessage] = useState("");
@@ -1038,7 +1041,6 @@ function CheckoutPage({ navigate, setUnlocked }) {
       JSON.stringify({
         name: name.trim(),
         email: cleanEmail,
-        utr: utr.trim() || "UPI-CONFIRMED-79",
         upiId: UPI_ID,
         amount: 79,
         purchasedAt: new Date().toISOString()
@@ -1268,19 +1270,9 @@ function CheckoutPage({ navigate, setUnlocked }) {
                 <span>Confirm & Get Instant Ebook Access</span>
               </div>
 
-              <div className="form-group">
-                <label>12-Digit UPI Ref / UTR No. (Optional)</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  placeholder="e.g. 429381749201 (from your payment receipt)"
-                  value={utr}
-                  onChange={(e) => setUtr(e.target.value)}
-                />
-                <span style={{ fontSize: "0.8rem", color: "var(--color-muted)" }}>
-                  Enter transaction reference or click below to unlock directly after payment.
-                </span>
-              </div>
+              <p style={{ fontSize: "0.9rem", color: "var(--color-secondary)", margin: "0 0 16px 0", lineHeight: 1.5 }}>
+                After completing your payment of ₹79 via your UPI app or the QR code above, click the button below to instantly unlock the full ebook.
+              </p>
 
               <button
                 type="submit"
@@ -1333,9 +1325,7 @@ function ThankYouPage({ navigate }) {
               {customerData.name && (
                 <div><b>Customer:</b> {customerData.name} ({customerData.email})</div>
               )}
-              {customerData.utr && (
-                <div><b>Reference:</b> {customerData.utr}</div>
-              )}
+              <div><b>Payment:</b> ₹79 (Confirmed via UPI)</div>
               <div><b>Access Status:</b> <span style={{ color: "#059669", fontWeight: 600 }}>Active (Lifetime Access Unlocked)</span></div>
             </div>
           </div>
@@ -1357,10 +1347,9 @@ function ThankYouPage({ navigate }) {
 // 10. LOGIN / ACCESS RESTORATION PAGE
 function LoginPage({ navigate, setUnlocked, unlocked }) {
   const [email, setEmail] = useState("");
-  const [utr, setUtr] = useState("");
-  const [showUtrMode, setShowUtrMode] = useState(false);
   const [message, setMessage] = useState(null);
   const [currentUser, setCurrentUser] = useState(() => localStorage.getItem(CURRENT_USER_KEY) || "");
+  const [unlinkedEmail, setUnlinkedEmail] = useState("");
 
   const AUTHOR_EMAILS = [
     "shimpibhushan2503@gmail.com",
@@ -1408,55 +1397,57 @@ function LoginPage({ navigate, setUnlocked, unlocked }) {
       setCurrentUser(cleanEmail);
       setMessage({
         type: "success",
-        text: `Purchase verified! Welcome back, ${cleanEmail}. Unlocking your ebook...`
+        text: `Purchase verified! Welcome back, ${cleanEmail}. Loading ebook...`
       });
       setTimeout(() => {
         navigate("chapter-1");
-      }, 900);
+      }, 700);
       return;
     }
 
-    // If UTR mode is active, verify UTR and restore access
-    if (showUtrMode) {
-      if (!utr.trim() || utr.trim().length < 6) {
-        setMessage({
-          type: "error",
-          text: "Please enter your 12-digit UPI Reference / UTR Number from your payment receipt."
-        });
-        return;
-      }
-
-      storedEmails.push(cleanEmail);
-      localStorage.setItem(EMAILS_STORAGE_KEY, JSON.stringify(storedEmails));
-      localStorage.setItem(STORAGE_KEY, "true");
-      localStorage.setItem(CURRENT_USER_KEY, cleanEmail);
-      localStorage.setItem(
-        "ai_income_customer",
-        JSON.stringify({
-          name: storedCustomer.name || cleanEmail.split("@")[0],
-          email: cleanEmail,
-          utr: utr.trim(),
-          amount: 79,
-          restoredAt: new Date().toISOString()
-        })
-      );
-      setUnlocked(true);
-      setCurrentUser(cleanEmail);
-      setMessage({
-        type: "success",
-        text: `UPI payment verified! Ebook unlocked for ${cleanEmail}. Redirecting...`
-      });
-      setTimeout(() => {
-        navigate("chapter-1");
-      }, 900);
-      return;
-    }
-
-    // Not found
+    // Not found in this browser yet
+    setUnlinkedEmail(cleanEmail);
     setMessage({
-      type: "error",
-      text: `No active purchase record found for "${cleanEmail}" on this browser.`
+      type: "info",
+      text: `No prior purchase record found for "${cleanEmail}" on this browser.`
     });
+  };
+
+  const handleRestorePaidAccess = () => {
+    const targetEmail = (unlinkedEmail || email).trim().toLowerCase();
+    if (!targetEmail || !targetEmail.includes("@")) return;
+
+    const storedEmails = (() => {
+      try {
+        return JSON.parse(localStorage.getItem(EMAILS_STORAGE_KEY)) || [];
+      } catch {
+        return [];
+      }
+    })();
+
+    if (!storedEmails.includes(targetEmail)) {
+      storedEmails.push(targetEmail);
+      localStorage.setItem(EMAILS_STORAGE_KEY, JSON.stringify(storedEmails));
+    }
+    localStorage.setItem(STORAGE_KEY, "true");
+    localStorage.setItem(CURRENT_USER_KEY, targetEmail);
+    localStorage.setItem(
+      "ai_income_customer",
+      JSON.stringify({
+        email: targetEmail,
+        amount: 79,
+        restoredAt: new Date().toISOString()
+      })
+    );
+    setUnlocked(true);
+    setCurrentUser(targetEmail);
+    setMessage({
+      type: "success",
+      text: `Access verified for ${targetEmail}! Opening ebook...`
+    });
+    setTimeout(() => {
+      navigate("chapter-1");
+    }, 700);
   };
 
   const handleLogout = () => {
@@ -1552,52 +1543,43 @@ function LoginPage({ navigate, setUnlocked, unlocked }) {
                   className="form-input"
                   placeholder="e.g. rahul@example.com"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    if (unlinkedEmail) setUnlinkedEmail("");
+                  }}
                   autoComplete="username"
                   required
                 />
+                <span style={{ fontSize: "0.8rem", color: "var(--color-secondary)" }}>
+                  Enter the email address you provided at checkout.
+                </span>
               </div>
-
-              {showUtrMode && (
-                <div className="form-group" style={{ animation: "fadeIn 0.2s ease" }}>
-                  <label>12-Digit UPI UTR / Reference No. *</label>
-                  <input
-                    type="text"
-                    className="form-input"
-                    placeholder="e.g. 429381749201 (from PhonePe / GPay / Paytm)"
-                    value={utr}
-                    onChange={(e) => setUtr(e.target.value)}
-                    required
-                  />
-                  <span style={{ fontSize: "0.8rem", color: "var(--color-secondary)" }}>
-                    Enter the transaction number from your ₹79 UPI payment receipt to link this device.
-                  </span>
-                </div>
-              )}
 
               <button
                 type="submit"
                 className="btn-primary btn-accent"
                 style={{ width: "100%", padding: 14, fontSize: "1rem", justifyContent: "center", display: "flex", alignItems: "center", gap: 8 }}
               >
-                <Key size={18} /> {showUtrMode ? "Verify UPI & Unlock Ebook →" : "Access My Ebook →"}
+                <Key size={18} /> Access My Ebook →
               </button>
 
-              <div style={{ display: "flex", flexDirection: "column", gap: 10, textAlign: "center", fontSize: "0.88rem", marginTop: 4 }}>
-                <button
-                  type="button"
-                  className="btn-link"
-                  onClick={() => {
-                    setShowUtrMode(!showUtrMode);
-                    setMessage(null);
-                  }}
-                  style={{ justifyContent: "center" }}
-                >
-                  {showUtrMode
-                    ? "← Back to standard email login"
-                    : "Paid via UPI on another device? Verify with UTR"}
-                </button>
+              {unlinkedEmail && (
+                <div style={{ padding: 14, background: "#FEF3C7", border: "1px solid #FDE68A", borderRadius: "var(--radius-md)", display: "flex", flexDirection: "column", gap: 10 }}>
+                  <div style={{ fontSize: "0.86rem", color: "#92400E", fontWeight: 600 }}>
+                    Already completed payment of ₹79 with {unlinkedEmail}?
+                  </div>
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    onClick={handleRestorePaidAccess}
+                    style={{ width: "100%", justifyContent: "center", fontSize: "0.9rem", padding: "10px 14px" }}
+                  >
+                    ✓ Yes, I Paid ₹79 — Unlock Access Now
+                  </button>
+                </div>
+              )}
 
+              <div style={{ display: "flex", flexDirection: "column", gap: 10, textAlign: "center", fontSize: "0.88rem", marginTop: 4 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "6px 0" }}>
                   <div style={{ flex: 1, height: 1, background: "var(--color-border)" }} />
                   <span style={{ fontSize: "0.78rem", color: "var(--color-muted)" }}>DON'T HAVE THE EBOOK YET?</span>
@@ -1610,7 +1592,7 @@ function LoginPage({ navigate, setUnlocked, unlocked }) {
                   onClick={() => navigate("checkout")}
                   style={{ width: "100%", justifyContent: "center" }}
                 >
-                  Buy Ebook for ₹79 (Instant Unlock) →
+                  Buy Ebook for ₹79 (Instant Access) →
                 </button>
               </div>
             </form>

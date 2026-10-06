@@ -1727,6 +1727,12 @@ p {
   color: #065F46;
 }
 
+.auth-message.info {
+  background-color: #EFF6FF;
+  border: 1px solid #BFDBFE;
+  color: #1E40AF;
+}
+
 .header-login-btn {
   padding: 8px 14px;
   font-size: 0.88rem;
@@ -1800,7 +1806,7 @@ p {
   .reading-progress-bar {
     top: 64px;
   }
-  .nav-links, .header-cta {
+  .nav-links, .header-cta, .header-login-btn {
     display: none !important;
   }
   .mobile-menu-toggle {
