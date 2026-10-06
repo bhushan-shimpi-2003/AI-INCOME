@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { ebookSections } from "./ebookContent";
+import AdminPage from "./AdminPage";
 import "./styles.css";
 
 const PREVIEW_LIMIT = 1;
@@ -225,6 +226,7 @@ function Footer({ navigate }) {
               <li><button onClick={() => navigate("pricing")}>Pricing</button></li>
               <li><button onClick={() => navigate("faq")}>FAQ</button></li>
               <li><button onClick={() => navigate("login")}>Reader Login</button></li>
+              <li><button onClick={() => navigate("admin")} style={{ color: "var(--color-accent)", fontWeight: 600 }}>⚡ Admin Dashboard</button></li>
               <li><button onClick={() => navigate("contact")}>Contact Support</button></li>
               <li><button onClick={() => navigate("checkout")}>Buy Ebook (₹79)</button></li>
             </ul>
@@ -242,7 +244,9 @@ function Footer({ navigate }) {
 
         <div className="footer-bottom">
           <span>© 2026 AI Income for Everyone by Bhushan. All rights reserved.</span>
-          <span>Digital Publishing & Practical AI Education.</span>
+          <span>
+            Digital Publishing & Practical AI Education • <button onClick={() => navigate("admin")} className="btn-link" style={{ fontSize: "0.82rem", color: "var(--color-muted)", padding: 0 }}>Admin Portal</button>
+          </span>
         </div>
       </div>
     </footer>
@@ -1036,16 +1040,30 @@ function CheckoutPage({ navigate, setUnlocked }) {
     setUnlocked(true);
     localStorage.setItem(STORAGE_KEY, "true");
     localStorage.setItem(CURRENT_USER_KEY, cleanEmail);
+
+    const newOrder = {
+      id: "ORD-UPI-" + Date.now().toString(36).toUpperCase(),
+      name: name.trim(),
+      email: cleanEmail,
+      amount: 79,
+      currency: "INR",
+      paymentMethod: `UPI (${UPI_ID})`,
+      date: new Date().toISOString(),
+      status: "Completed",
+      type: "live"
+    };
+
     localStorage.setItem(
       "ai_income_customer",
-      JSON.stringify({
-        name: name.trim(),
-        email: cleanEmail,
-        upiId: UPI_ID,
-        amount: 79,
-        purchasedAt: new Date().toISOString()
-      })
+      JSON.stringify(newOrder)
     );
+
+    try {
+      const storedOrders = JSON.parse(localStorage.getItem("ai_income_orders")) || [];
+      storedOrders.unshift(newOrder);
+      localStorage.setItem("ai_income_orders", JSON.stringify(storedOrders));
+    } catch {}
+
     navigate("thank-you");
   };
 
@@ -1441,6 +1459,25 @@ function LoginPage({ navigate, setUnlocked, unlocked }) {
     );
     setUnlocked(true);
     setCurrentUser(targetEmail);
+
+    try {
+      const storedOrders = JSON.parse(localStorage.getItem("ai_income_orders")) || [];
+      if (!storedOrders.some((o) => o.email.toLowerCase() === targetEmail)) {
+        storedOrders.unshift({
+          id: "ORD-RESTORED-" + Date.now().toString(36).toUpperCase(),
+          name: targetEmail.split("@")[0],
+          email: targetEmail,
+          amount: 79,
+          currency: "INR",
+          paymentMethod: "UPI (bhushan.shimpi1@ybl - Restored)",
+          date: new Date().toISOString(),
+          status: "Completed",
+          type: "live"
+        });
+        localStorage.setItem("ai_income_orders", JSON.stringify(storedOrders));
+      }
+    } catch {}
+
     setMessage({
       type: "success",
       text: `Access verified for ${targetEmail}! Opening ebook...`
@@ -1522,6 +1559,15 @@ function LoginPage({ navigate, setUnlocked, unlocked }) {
                 >
                   Browse Chapter Directory
                 </button>
+                {AUTHOR_EMAILS.includes(currentUser.toLowerCase()) && (
+                  <button
+                    className="btn-primary"
+                    style={{ width: "100%", justifyContent: "center", background: "var(--color-primary)" }}
+                    onClick={() => navigate("admin")}
+                  >
+                    ⚡ Open Admin Sales Dashboard →
+                  </button>
+                )}
               </div>
 
               <div style={{ textAlign: "center", paddingTop: 12, borderTop: "1px solid var(--color-border)" }}>
@@ -1762,7 +1808,15 @@ function RefundPage({ navigate }) {
 
 // MAIN APPLICATION ROUTER & STATE
 export default function App() {
-  const [route, setRoute] = useState("home");
+  const getInitialRoute = () => {
+    try {
+      const hash = window.location.hash.replace("#", "").trim();
+      if (hash) return hash;
+    } catch {}
+    return "home";
+  };
+
+  const [route, setRoute] = useState(getInitialRoute);
   const [unlocked, setUnlocked] = useState(() => localStorage.getItem(STORAGE_KEY) === "true");
   const [scrollProgress, setScrollProgress] = useState(0);
 
@@ -1777,8 +1831,25 @@ export default function App() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  useEffect(() => {
+    const handleHashChange = () => {
+      try {
+        const hash = window.location.hash.replace("#", "").trim();
+        if (hash) {
+          setRoute(hash);
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }
+      } catch {}
+    };
+    window.addEventListener("hashchange", handleHashChange);
+    return () => window.removeEventListener("hashchange", handleHashChange);
+  }, []);
+
   const navigate = (targetRoute) => {
     setRoute(targetRoute);
+    try {
+      window.location.hash = targetRoute;
+    } catch {}
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -1816,6 +1887,9 @@ export default function App() {
         return <ContactPage navigate={navigate} />;
       case "login":
         return <LoginPage navigate={navigate} setUnlocked={setUnlocked} unlocked={unlocked} />;
+      case "admin":
+      case "dashboard":
+        return <AdminPage navigate={navigate} />;
       case "privacy":
         return <PrivacyPage />;
       case "terms":
