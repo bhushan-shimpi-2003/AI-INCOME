@@ -611,16 +611,16 @@ export default function AdminPage({ navigate }) {
     );
   }
 
-  // NAVIGATION TABS CONFIG
+  // NAVIGATION TABS CONFIG - CLEAN & SIMPLE
   const navTabs = [
-    { id: "dashboard", label: "Analytics Overview", icon: LayoutDashboard },
-    { id: "daily_sales", label: "Daily Sales Report", icon: Calendar },
-    { id: "payments", label: "Customer Payments & Logs", icon: CreditCard, badge: `${orders.length}` },
-    { id: "chapters", label: "Ebook Chapter Editor", icon: BookOpen, badge: `${chapters.length}` },
-    { id: "pricing", label: "UPI & Pricing Settings", icon: IndianRupee },
-    { id: "details", label: "Ebook Details & Meta", icon: FileText },
-    { id: "readers", label: "Readers & Access", icon: Users, badge: `${readerEmails.length}` },
-    { id: "manual_sale", label: "Record Manual Sale", icon: PlusCircle },
+    { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { id: "daily_sales", label: "Daily Sales", icon: Calendar },
+    { id: "payments", label: "Payments", icon: CreditCard, badge: `${orders.length}` },
+    { id: "chapters", label: "Chapters", icon: BookOpen, badge: `${chapters.length}` },
+    { id: "pricing", label: "Pricing & UPI", icon: IndianRupee },
+    { id: "details", label: "Ebook Details", icon: FileText },
+    { id: "readers", label: "Readers", icon: Users, badge: `${readerEmails.length}` },
+    { id: "manual_sale", label: "Record Sale", icon: PlusCircle },
     { id: "backup", label: "Backup & Restore", icon: Settings }
   ];
 
@@ -647,30 +647,28 @@ export default function AdminPage({ navigate }) {
           </span>
           <button
             className="btn-link"
-            onClick={() => navigate("chapter-1")}
+            onClick={() => navigate("home")}
             style={{ fontSize: "0.8rem", color: "var(--color-accent)" }}
           >
-            Reader →
+            Store →
           </button>
         </div>
       </div>
 
       <div className="admin-body-container">
-        {/* SIDEBAR NAVIGATION */}
+        {/* SIMPLE & PROFESSIONAL SIDEBAR */}
         <aside className={`admin-sidebar-nav ${sidebarOpen ? "open" : ""}`}>
           <div className="admin-sidebar-brand">
             <div className="admin-brand-icon-box">AI</div>
-            <div>
-              <div style={{ fontWeight: 800, fontSize: "0.98rem", color: "var(--color-primary)", lineHeight: 1.2 }}>
-                Admin Suite
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontWeight: 800, fontSize: "0.95rem", color: "var(--color-primary)", lineHeight: 1.2 }}>
+                AI Income
               </div>
-              <div style={{ fontSize: "0.75rem", color: "var(--color-muted)" }}>
-                by Bhushan Shimpi
+              <div style={{ fontSize: "0.72rem", color: "var(--color-muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                Admin Console
               </div>
             </div>
           </div>
-
-          <div className="admin-sidebar-section-title">CONTROL CENTER</div>
 
           <nav className="admin-sidebar-menu">
             {navTabs.map((tab) => {
@@ -685,7 +683,7 @@ export default function AdminPage({ navigate }) {
                     setSidebarOpen(false);
                   }}
                 >
-                  <Icon size={18} className="admin-nav-icon" />
+                  <Icon size={17} className="admin-nav-icon" />
                   <span style={{ flex: 1, textAlign: "left" }}>{tab.label}</span>
                   {tab.badge && <span className="admin-nav-badge">{tab.badge}</span>}
                 </button>
@@ -694,35 +692,21 @@ export default function AdminPage({ navigate }) {
           </nav>
 
           <div className="admin-sidebar-footer">
-            <div className="admin-upi-status-pill">
-              <span className="live-dot" />
-              <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                <b>{settings.upiId}</b> (₹{settings.price})
-              </div>
-            </div>
-
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
-              <button
-                className="admin-sidebar-action-btn"
-                onClick={() => navigate("chapter-1")}
-                title="Open Live Digital Ebook Reader"
-              >
-                <ExternalLink size={13} /> Reader
-              </button>
-              <button
-                className="admin-sidebar-action-btn"
-                onClick={() => navigate("home")}
-                title="View Public Storefront"
-              >
-                <Eye size={13} /> Store
-              </button>
-            </div>
-
+            <button
+              className="admin-sidebar-action-btn"
+              onClick={() => navigate("home")}
+              title="View Public Storefront"
+            >
+              <Eye size={15} />
+              <span>View Store</span>
+            </button>
             <button
               className="admin-sidebar-action-btn danger"
               onClick={handleAdminLogout}
+              title="Sign Out of Admin"
             >
-              <LogOut size={13} /> Exit Admin
+              <LogOut size={15} />
+              <span>Exit Admin</span>
             </button>
           </div>
         </aside>
@@ -783,60 +767,61 @@ export default function AdminPage({ navigate }) {
               </div>
 
               {/* 4 CORE KPI CARDS */}
+              {/* 4 CORE KPI CARDS IN A ROW */}
               <div className="admin-stats-grid" style={{ marginTop: 20 }}>
                 <div className="admin-stat-card">
                   <div className="admin-stat-header">
-                    <span className="admin-stat-label">TOTAL INCOME (REVENUE)</span>
+                    <span className="admin-stat-label">Total Revenue</span>
                     <div className="admin-stat-icon" style={{ background: "#EEF2FF", color: "#4F46E5" }}>
-                      <TrendingUp size={20} />
+                      <TrendingUp size={18} />
                     </div>
                   </div>
                   <div className="admin-stat-value">{formatINR(kpis.totalRevenue)}</div>
                   <div className="admin-stat-sub">
-                    <span className="badge-positive">100% Direct UPI</span>
-                    <span>{kpis.totalSales} copies sold</span>
+                    <span className="badge-positive">100% UPI</span>
+                    <span>{kpis.totalSales} sales</span>
                   </div>
                 </div>
 
                 <div className="admin-stat-card">
                   <div className="admin-stat-header">
-                    <span className="admin-stat-label">TOTAL EBOOKS SOLD</span>
+                    <span className="admin-stat-label">Total Ebooks Sold</span>
                     <div className="admin-stat-icon" style={{ background: "#ECFDF5", color: "#059669" }}>
-                      <CreditCard size={20} />
+                      <CreditCard size={18} />
                     </div>
                   </div>
                   <div className="admin-stat-value">{kpis.totalSales} copies</div>
                   <div className="admin-stat-sub">
-                    <span className="badge-neutral">₹{settings.price} per reader</span>
-                    <span>Lifetime digital access</span>
+                    <span className="badge-neutral">₹{settings.price} each</span>
+                    <span>Direct readers</span>
                   </div>
                 </div>
 
                 <div className="admin-stat-card">
                   <div className="admin-stat-header">
-                    <span className="admin-stat-label">TODAY'S INCOME</span>
+                    <span className="admin-stat-label">Today's Income</span>
                     <div className="admin-stat-icon" style={{ background: "#FEF3C7", color: "#D97706" }}>
-                      <Calendar size={20} />
+                      <Calendar size={18} />
                     </div>
                   </div>
                   <div className="admin-stat-value">{formatINR(kpis.todayIncome)}</div>
                   <div className="admin-stat-sub">
-                    <span className="badge-positive">Today: {kpis.todaySales} sales</span>
-                    <span>Real-time tracker</span>
+                    <span className="badge-positive">{kpis.todaySales} today</span>
+                    <span>Live tracker</span>
                   </div>
                 </div>
 
                 <div className="admin-stat-card">
                   <div className="admin-stat-header">
-                    <span className="admin-stat-label">ACTIVE READERS</span>
+                    <span className="admin-stat-label">Active Readers</span>
                     <div className="admin-stat-icon" style={{ background: "#F3E8FF", color: "#9333EA" }}>
-                      <Users size={20} />
+                      <Users size={18} />
                     </div>
                   </div>
                   <div className="admin-stat-value">{kpis.uniqueCustomers}</div>
                   <div className="admin-stat-sub">
                     <span className="badge-neutral">Zero Refunds</span>
-                    <span>30-Day guarantee status</span>
+                    <span>Verified buyers</span>
                   </div>
                 </div>
               </div>
@@ -1004,35 +989,67 @@ export default function AdminPage({ navigate }) {
               </div>
 
               {/* Daily Sales Telemetry Summary Strip */}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16, marginTop: 20 }}>
-                <div style={{ padding: "16px 20px", background: "#FFFFFF", border: "1px solid var(--color-border)", borderRadius: "var(--radius-md)" }}>
-                  <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--color-muted)", letterSpacing: "0.05em" }}>TOTAL DAYS TRACKED</div>
-                  <div style={{ fontSize: "1.4rem", fontWeight: 800, color: "var(--color-primary)", marginTop: 4 }}>{daysAnalytics.length} days</div>
-                  <div style={{ fontSize: "0.78rem", color: "var(--color-secondary)", marginTop: 4 }}>Continuous performance history</div>
+              <div className="admin-stats-grid" style={{ marginTop: 20 }}>
+                <div className="admin-stat-card">
+                  <div className="admin-stat-header">
+                    <span className="admin-stat-label">Total Days Tracked</span>
+                    <div className="admin-stat-icon" style={{ background: "#EEF2FF", color: "#4F46E5" }}>
+                      <Calendar size={18} />
+                    </div>
+                  </div>
+                  <div className="admin-stat-value">{daysAnalytics.length} days</div>
+                  <div className="admin-stat-sub">
+                    <span className="badge-neutral">History</span>
+                    <span>Continuous tracking</span>
+                  </div>
                 </div>
 
-                <div style={{ padding: "16px 20px", background: "#FFFFFF", border: "1px solid var(--color-border)", borderRadius: "var(--radius-md)" }}>
-                  <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--color-muted)", letterSpacing: "0.05em" }}>AVERAGE DAILY INCOME</div>
-                  <div style={{ fontSize: "1.4rem", fontWeight: 800, color: "#059669", marginTop: 4 }}>
+                <div className="admin-stat-card">
+                  <div className="admin-stat-header">
+                    <span className="admin-stat-label">Average Daily Income</span>
+                    <div className="admin-stat-icon" style={{ background: "#ECFDF5", color: "#059669" }}>
+                      <TrendingUp size={18} />
+                    </div>
+                  </div>
+                  <div className="admin-stat-value">
                     {formatINR(daysAnalytics.length > 0 ? Math.round(daysAnalytics.reduce((sum, d) => sum + d.revenue, 0) / daysAnalytics.length) : 0)}
                   </div>
-                  <div style={{ fontSize: "0.78rem", color: "#059669", marginTop: 4 }}>Per day average</div>
+                  <div className="admin-stat-sub">
+                    <span className="badge-positive">Per day</span>
+                    <span>Daily average</span>
+                  </div>
                 </div>
 
-                <div style={{ padding: "16px 20px", background: "#FFFFFF", border: "1px solid var(--color-border)", borderRadius: "var(--radius-md)" }}>
-                  <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--color-muted)", letterSpacing: "0.05em" }}>PERIOD VOLUME</div>
-                  <div style={{ fontSize: "1.4rem", fontWeight: 800, color: "var(--color-primary)", marginTop: 4 }}>
+                <div className="admin-stat-card">
+                  <div className="admin-stat-header">
+                    <span className="admin-stat-label">Period Volume</span>
+                    <div className="admin-stat-icon" style={{ background: "#FEF3C7", color: "#D97706" }}>
+                      <CreditCard size={18} />
+                    </div>
+                  </div>
+                  <div className="admin-stat-value">
                     {daysAnalytics.reduce((sum, d) => sum + d.count, 0)} copies
                   </div>
-                  <div style={{ fontSize: "0.78rem", color: "var(--color-secondary)", marginTop: 4 }}>Total sold in this timeframe</div>
+                  <div className="admin-stat-sub">
+                    <span className="badge-neutral">Units</span>
+                    <span>Total in timeframe</span>
+                  </div>
                 </div>
 
-                <div style={{ padding: "16px 20px", background: "#FFFFFF", border: "1px solid var(--color-border)", borderRadius: "var(--radius-md)" }}>
-                  <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--color-muted)", letterSpacing: "0.05em" }}>PERIOD EARNINGS</div>
-                  <div style={{ fontSize: "1.4rem", fontWeight: 800, color: "#4F46E5", marginTop: 4 }}>
+                <div className="admin-stat-card">
+                  <div className="admin-stat-header">
+                    <span className="admin-stat-label">Period Earnings</span>
+                    <div className="admin-stat-icon" style={{ background: "#F3E8FF", color: "#9333EA" }}>
+                      <IndianRupee size={18} />
+                    </div>
+                  </div>
+                  <div className="admin-stat-value">
                     {formatINR(daysAnalytics.reduce((sum, d) => sum + d.revenue, 0))}
                   </div>
-                  <div style={{ fontSize: "0.78rem", color: "var(--color-secondary)", marginTop: 4 }}>Deposited directly to UPI</div>
+                  <div className="admin-stat-sub">
+                    <span className="badge-positive">Direct UPI</span>
+                    <span>Gross earnings</span>
+                  </div>
                 </div>
               </div>
 
