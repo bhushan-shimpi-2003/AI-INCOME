@@ -8,7 +8,19 @@ import {
 import { QRCodeSVG } from "qrcode.react";
 import { ebookSections } from "./ebookContent";
 import AdminPage from "./AdminPage";
-import { getSiteSettings, getMergedChapters, LEGAL_DETAILS } from "./siteData";
+import {
+  getSiteSettings,
+  getMergedChapters,
+  LEGAL_DETAILS,
+  createOrderApi,
+  verifyReaderAccessApi,
+  submitContactInquiryApi,
+  fetchSiteSettingsApi,
+  fetchChaptersApi,
+  fetchReviewsApi,
+  fetchFaqsApi,
+  grantReaderApi
+} from "./siteData";
 import "./styles.css";
 
 const PREVIEW_LIMIT = 1;
@@ -1083,7 +1095,8 @@ function CheckoutPage({ navigate, setUnlocked, siteSettings = getSiteSettings() 
       paymentMethod: `UPI (${UPI_ID})`,
       date: new Date().toISOString(),
       status: "Completed",
-      type: "live"
+      type: "live",
+      orderType: "live"
     };
 
     localStorage.setItem(
@@ -1096,6 +1109,17 @@ function CheckoutPage({ navigate, setUnlocked, siteSettings = getSiteSettings() 
       storedOrders.unshift(newOrder);
       localStorage.setItem("ai_income_orders", JSON.stringify(storedOrders));
     } catch {}
+
+    // Save to PostgreSQL database
+    createOrderApi({
+      name: name.trim(),
+      email: cleanEmail,
+      amount: Number(AMOUNT) || 79,
+      paymentMethod: `UPI (${UPI_ID})`,
+      orderType: "live"
+    }).catch((err) => {
+      console.warn("Backend order creation notice:", err);
+    });
 
     navigate("thank-you");
   };
@@ -1463,12 +1487,43 @@ function LoginPage({ navigate, setUnlocked, unlocked, siteSettings = getSiteSett
       return;
     }
 
-    // Not found in this browser yet
-    setUnlinkedEmail(cleanEmail);
-    setMessage({
-      type: "info",
-      text: `No prior purchase record found for "${cleanEmail}" on this browser.`
-    });
+    // Check with PostgreSQL backend if not cached locally
+    verifyReaderAccessApi(cleanEmail)
+      .then((res) => {
+        if (res && res.unlocked) {
+          setUnlocked(true);
+          localStorage.setItem(STORAGE_KEY, "true");
+          localStorage.setItem(CURRENT_USER_KEY, cleanEmail);
+          const currentList = (() => {
+            try { return JSON.parse(localStorage.getItem(EMAILS_STORAGE_KEY)) || []; } catch { return []; }
+          })();
+          if (!currentList.includes(cleanEmail)) {
+            currentList.push(cleanEmail);
+            localStorage.setItem(EMAILS_STORAGE_KEY, JSON.stringify(currentList));
+          }
+          setCurrentUser(cleanEmail);
+          setMessage({
+            type: "success",
+            text: `Purchase verified via database! Welcome back, ${cleanEmail}. Loading ebook...`
+          });
+          setTimeout(() => {
+            navigate("chapter-1");
+          }, 600);
+        } else {
+          setUnlinkedEmail(cleanEmail);
+          setMessage({
+            type: "info",
+            text: `No active purchase found for "${cleanEmail}". If you completed payment, click below to unlock or purchase access.`
+          });
+        }
+      })
+      .catch(() => {
+        setUnlinkedEmail(cleanEmail);
+        setMessage({
+          type: "info",
+          text: `No prior purchase record found for "${cleanEmail}" on this browser.`
+        });
+      });
   };
 
   const handleRestorePaidAccess = () => {
@@ -1517,6 +1572,8 @@ function LoginPage({ navigate, setUnlocked, unlocked, siteSettings = getSiteSett
         localStorage.setItem("ai_income_orders", JSON.stringify(storedOrders));
       }
     } catch {}
+
+    grantReaderApi(targetEmail, targetEmail.split("@")[0], "Restored reader via login").catch(() => {});
 
     setMessage({
       type: "success",
@@ -1694,8 +1751,13 @@ function ContactPage({ navigate }) {
   const [submitted, setSubmitted] = useState(false);
   const [formData, setFormData] = useState({ name: "", email: "", message: "" });
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    try {
+      await submitContactInquiryApi(formData);
+    } catch (err) {
+      console.warn("Contact inquiry backend notice:", err);
+    }
     setSubmitted(true);
   };
 
@@ -2262,6 +2324,11 @@ export default function App() {
     const handleChaptersUpdate = () => setChapters(getMergedChapters());
     window.addEventListener("site_settings_updated", handleSettingsUpdate);
     window.addEventListener("chapters_updated", handleChaptersUpdate);
+
+    // Initial live sync with PostgreSQL database
+    fetchSiteSettingsApi().then((s) => s && setSiteSettings(s)).catch(() => {});
+    fetchChaptersApi().then((ch) => ch && setChapters(ch)).catch(() => {});
+
     return () => {
       window.removeEventListener("site_settings_updated", handleSettingsUpdate);
       window.removeEventListener("chapters_updated", handleChaptersUpdate);

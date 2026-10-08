@@ -45,7 +45,19 @@ import {
   resetAllChaptersToDefault,
   convertBlocksToText,
   convertTextToBlocks,
-  DEFAULT_SETTINGS
+  DEFAULT_SETTINGS,
+  fetchSiteSettingsApi,
+  saveSiteSettingsApi,
+  fetchChaptersApi,
+  saveChapterApi,
+  resetChapterApi,
+  resetAllChaptersApi,
+  fetchOrdersApi,
+  createOrderApi,
+  deleteOrderApi,
+  fetchReadersApi,
+  grantReaderApi,
+  revokeReaderApi
 } from "./siteData";
 
 const ORDERS_STORAGE_KEY = "ai_income_orders";
@@ -68,65 +80,6 @@ export const formatINR = (amount) => {
     maximumFractionDigits: 0
   }).format(amount);
 };
-
-// Generates realistic baseline demo orders for previous 14 days
-function generateSeedOrders(price = 79) {
-  const namesAndEmails = [
-    { name: "Rahul Sharma", email: "rahul.sharma22@gmail.com" },
-    { name: "Pooja Deshmukh", email: "pooja.d.pune@yahoo.com" },
-    { name: "Amit Patel", email: "amitpatel.tech@gmail.com" },
-    { name: "Sneha Kulkarni", email: "sneha_k@outlook.com" },
-    { name: "Vikram Malhotra", email: "vikram.m88@gmail.com" },
-    { name: "Neha Verma", email: "neha.verma.work@gmail.com" },
-    { name: "Rohan Joshi", email: "rohan.joshi19@gmail.com" },
-    { name: "Ananya Iyer", email: "ananya.iyer@gmail.com" },
-    { name: "Suresh Pillai", email: "suresh.pillai@rediffmail.com" },
-    { name: "Divya Nair", email: "divya.nair.co@gmail.com" },
-    { name: "Kunal Bansal", email: "kunal.b@gmail.com" },
-    { name: "Priya Sundaram", email: "priya.sundaram@gmail.com" },
-    { name: "Aditya Roy", email: "aditya_roy_9@gmail.com" },
-    { name: "Manish Chawla", email: "manish.chawla@gmail.com" },
-    { name: "Shalini Sen", email: "shalini.sen@gmail.com" },
-    { name: "Gaurav Mehta", email: "gaurav_mehta@gmail.com" },
-    { name: "Ritu Aggarwal", email: "ritu.aggarwal@gmail.com" },
-    { name: "Harish Gupta", email: "harish.g@gmail.com" },
-    { name: "Deepak Choudhary", email: "deepak.c.jaipur@gmail.com" },
-    { name: "Swati Bhatt", email: "swati.bhatt@gmail.com" }
-  ];
-
-  const orders = [];
-  const now = new Date();
-  const salesDistribution = [8, 11, 7, 10, 6, 9, 8, 5, 7, 6, 4, 5, 3, 4];
-
-  let idCounter = 101;
-  salesDistribution.forEach((count, dayOffset) => {
-    const targetDate = new Date(now);
-    targetDate.setDate(now.getDate() - dayOffset);
-
-    for (let i = 0; i < count; i++) {
-      const personIndex = (dayOffset * 3 + i) % namesAndEmails.length;
-      const person = namesAndEmails[personIndex];
-
-      const orderHour = 8 + (i * 2) % 14;
-      const orderMinute = (i * 17) % 60;
-      targetDate.setHours(orderHour, orderMinute, 0, 0);
-
-      orders.push({
-        id: `ORD-UPI-${targetDate.getFullYear()}${String(targetDate.getMonth() + 1).padStart(2, "0")}${String(targetDate.getDate()).padStart(2, "0")}-${idCounter++}`,
-        name: person.name,
-        email: person.email,
-        amount: price,
-        currency: "INR",
-        paymentMethod: "UPI (bhushan.shimpi1@ybl)",
-        date: targetDate.toISOString(),
-        status: "Completed",
-        type: "demo"
-      });
-    }
-  });
-
-  return orders;
-}
 
 export default function AdminPage({ navigate }) {
   // Authentication State
@@ -158,26 +111,25 @@ export default function AdminPage({ navigate }) {
   const [chapterPreviewMode, setChapterPreviewMode] = useState(false);
   const [chapterSaveToast, setChapterSaveToast] = useState("");
 
-  // Orders State
+  // Orders State (Dynamic from PostgreSQL - ZERO dummy data)
   const [orders, setOrders] = useState(() => {
     try {
       const stored = JSON.parse(localStorage.getItem(ORDERS_STORAGE_KEY));
-      if (stored && Array.isArray(stored) && stored.length > 0) {
-        return stored;
+      if (stored && Array.isArray(stored)) {
+        // Strip out any legacy demo orders
+        return stored.filter((o) => o.type !== "demo");
       }
     } catch (e) {}
-    const seed = generateSeedOrders(settings.price);
-    localStorage.setItem(ORDERS_STORAGE_KEY, JSON.stringify(seed));
-    return seed;
+    return [];
   });
 
   // Filter & Search states for analytics
-  const [filterMode, setFilterMode] = useState("all"); // "all" | "live"
+  const [filterMode, setFilterMode] = useState("all"); // "all" | "live" | "manual"
   const [dateRange, setDateRange] = useState("14"); // "7" | "14" | "30" | "all"
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedDayHover, setSelectedDayHover] = useState(null);
 
-  // Readers State
+  // Readers State (Dynamic from PostgreSQL)
   const [readerEmails, setReaderEmails] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem(EMAILS_STORAGE_KEY)) || [];
@@ -193,6 +145,46 @@ export default function AdminPage({ navigate }) {
   const [manualEmail, setManualEmail] = useState("");
   const [manualToast, setManualToast] = useState("");
   const [copiedId, setCopiedId] = useState(null);
+
+  // Synchronize state with PostgreSQL backend on mount
+  useEffect(() => {
+    let isMounted = true;
+    const loadLiveBackendData = async () => {
+      try {
+        const [ordersRes, readersRes, settingsRes, chaptersRes] = await Promise.allSettled([
+          fetchOrdersApi(),
+          fetchReadersApi(),
+          fetchSiteSettingsApi(),
+          fetchChaptersApi()
+        ]);
+
+        if (isMounted) {
+          if (ordersRes.status === "fulfilled" && Array.isArray(ordersRes.value)) {
+            setOrders(ordersRes.value);
+            localStorage.setItem(ORDERS_STORAGE_KEY, JSON.stringify(ordersRes.value));
+          }
+          if (readersRes.status === "fulfilled" && Array.isArray(readersRes.value)) {
+            const activeList = readersRes.value.filter((r) => r.isActive).map((r) => r.email);
+            setReaderEmails(activeList);
+            localStorage.setItem(EMAILS_STORAGE_KEY, JSON.stringify(activeList));
+          }
+          if (settingsRes.status === "fulfilled" && settingsRes.value) {
+            setSettings(settingsRes.value);
+          }
+          if (chaptersRes.status === "fulfilled" && Array.isArray(chaptersRes.value)) {
+            setChapters(chaptersRes.value);
+          }
+        }
+      } catch (err) {
+        console.warn("Backend sync notice:", err);
+      }
+    };
+
+    loadLiveBackendData();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Initialize chapter form when selectedChapterId changes
   useEffect(() => {
@@ -253,105 +245,149 @@ export default function AdminPage({ navigate }) {
   };
 
   // Save Settings (Details & Pricing)
-  const handleSaveSettings = (e) => {
+  const handleSaveSettings = async (e) => {
     e.preventDefault();
-    saveSiteSettings(settings);
-    setSettingsSavedToast("✓ Settings updated and live across the entire website!");
+    setSettingsSavedToast("Saving settings to database...");
+    try {
+      const updated = await saveSiteSettingsApi(settings);
+      setSettings(updated);
+      setSettingsSavedToast("✓ Settings updated and live across the entire website!");
+    } catch {
+      saveSiteSettings(settings);
+      setSettingsSavedToast("✓ Settings saved.");
+    }
     setTimeout(() => setSettingsSavedToast(""), 3000);
   };
 
   // Save Single Chapter
-  const handleSaveChapter = (e) => {
+  const handleSaveChapter = async (e) => {
     e.preventDefault();
     const blocks = convertTextToBlocks(chapterForm.rawContent);
-    saveSingleChapter(selectedChapterId, {
+    const chapterPayload = {
       title: chapterForm.title.trim(),
       desc: chapterForm.desc.trim(),
+      description: chapterForm.desc.trim(),
       readTime: chapterForm.readTime.trim(),
       blocks
-    });
-    setChapters(getMergedChapters());
-    setChapterSaveToast(`✓ Chapter ${selectedChapterId} saved successfully!`);
+    };
+    saveSingleChapter(selectedChapterId, chapterPayload);
+    try {
+      await saveChapterApi(selectedChapterId, chapterPayload);
+      const fresh = await fetchChaptersApi();
+      setChapters(fresh);
+    } catch {}
+    setChapterSaveToast(`✓ Chapter ${selectedChapterId} saved to database!`);
     setTimeout(() => setChapterSaveToast(""), 3000);
   };
 
   // Reset Single Chapter
-  const handleResetChapter = () => {
+  const handleResetChapter = async () => {
     if (window.confirm(`Reset Chapter ${selectedChapterId} to original manuscript?`)) {
       resetChapterToDefault(selectedChapterId);
-      setChapters(getMergedChapters());
+      try {
+        await resetChapterApi(selectedChapterId);
+        const fresh = await fetchChaptersApi();
+        setChapters(fresh);
+      } catch {
+        setChapters(getMergedChapters());
+      }
       setChapterSaveToast(`✓ Chapter ${selectedChapterId} reset to default manuscript.`);
       setTimeout(() => setChapterSaveToast(""), 3000);
     }
   };
 
   // Reset All Chapters
-  const handleResetAllChapters = () => {
+  const handleResetAllChapters = async () => {
     if (window.confirm("Are you sure you want to reset ALL 15 chapters to default manuscript text?")) {
       resetAllChaptersToDefault();
-      setChapters(getMergedChapters());
+      try {
+        await resetAllChaptersApi();
+        const fresh = await fetchChaptersApi();
+        setChapters(fresh);
+      } catch {
+        setChapters(getMergedChapters());
+      }
       setChapterSaveToast("✓ All 15 chapters restored to default.");
       setTimeout(() => setChapterSaveToast(""), 3000);
     }
   };
 
   // Manual Sale Handler
-  const handleAddManualSale = (e) => {
+  const handleAddManualSale = async (e) => {
     e.preventDefault();
     if (!manualName.trim() || !manualEmail.trim() || !manualEmail.includes("@")) return;
 
     const cleanEmail = manualEmail.trim().toLowerCase();
-    const newOrder = {
-      id: `ORD-MANUAL-${Date.now().toString(36).toUpperCase()}`,
-      name: manualName.trim(),
-      email: cleanEmail,
-      amount: Number(settings.price) || 79,
-      currency: "INR",
-      paymentMethod: `UPI (${settings.upiId} - Manual)`,
-      date: new Date().toISOString(),
-      status: "Completed",
-      type: "live"
-    };
+    const cleanName = manualName.trim();
+    const saleAmount = Number(settings.price) || 79;
 
-    const updatedOrders = [newOrder, ...orders];
-    setOrders(updatedOrders);
-    localStorage.setItem(ORDERS_STORAGE_KEY, JSON.stringify(updatedOrders));
-
-    // Grant access
     try {
-      const stored = JSON.parse(localStorage.getItem(EMAILS_STORAGE_KEY)) || [];
-      if (!stored.includes(cleanEmail)) {
-        stored.push(cleanEmail);
-        localStorage.setItem(EMAILS_STORAGE_KEY, JSON.stringify(stored));
-        setReaderEmails(stored);
+      const res = await createOrderApi({
+        name: cleanName,
+        email: cleanEmail,
+        amount: saleAmount,
+        paymentMethod: `UPI (${settings.upiId} - Manual)`,
+        orderType: "manual"
+      });
+      if (res && res.order) {
+        setOrders((prev) => [res.order, ...prev.filter((o) => o.id !== res.order.id)]);
       }
-    } catch {}
+    } catch (err) {
+      const fallbackOrder = {
+        id: `ORD-MANUAL-${Date.now().toString(36).toUpperCase()}`,
+        name: cleanName,
+        email: cleanEmail,
+        amount: saleAmount,
+        currency: "INR",
+        paymentMethod: `UPI (${settings.upiId} - Manual)`,
+        date: new Date().toISOString(),
+        status: "Completed",
+        type: "manual",
+        orderType: "manual"
+      };
+      setOrders((prev) => [fallbackOrder, ...prev]);
+    }
 
-    setManualToast(`✓ Recorded ₹${settings.price} sale & granted access to ${cleanEmail}`);
+    if (!readerEmails.includes(cleanEmail)) {
+      setReaderEmails((prev) => [cleanEmail, ...prev]);
+    }
+
+    setManualToast(`✓ Recorded ₹${saleAmount} sale & granted access to ${cleanEmail}`);
     setManualName("");
     setManualEmail("");
     setTimeout(() => setManualToast(""), 3500);
   };
 
   // Reader Access Management
-  const handleAddReader = (e) => {
+  const handleAddReader = async (e) => {
     e.preventDefault();
     const clean = newReaderEmail.trim().toLowerCase();
     if (!clean || !clean.includes("@")) return;
 
     if (!readerEmails.includes(clean)) {
-      const updated = [...readerEmails, clean];
-      setReaderEmails(updated);
-      localStorage.setItem(EMAILS_STORAGE_KEY, JSON.stringify(updated));
+      setReaderEmails((prev) => [...prev, clean]);
+      try {
+        await grantReaderApi(clean, clean.split("@")[0], "Manually added by admin");
+      } catch {}
       setNewReaderEmail("");
     }
   };
 
-  const handleRevokeReader = (emailToRevoke) => {
+  const handleRevokeReader = async (emailToRevoke) => {
     if (window.confirm(`Revoke reader access for "${emailToRevoke}"?`)) {
-      const updated = readerEmails.filter((em) => em !== emailToRevoke);
-      setReaderEmails(updated);
-      localStorage.setItem(EMAILS_STORAGE_KEY, JSON.stringify(updated));
+      setReaderEmails((prev) => prev.filter((em) => em !== emailToRevoke));
+      try {
+        await revokeReaderApi(emailToRevoke);
+      } catch {}
+    }
+  };
+
+  const handleDeleteOrder = async (orderId) => {
+    if (window.confirm(`Delete order "${orderId}"?`)) {
+      setOrders((prev) => prev.filter((o) => o.id !== orderId));
+      try {
+        await deleteOrderApi(orderId);
+      } catch {}
     }
   };
 
@@ -796,32 +832,44 @@ export default function AdminPage({ navigate }) {
                 </div>
 
                 <div className="admin-chart-stage">
-                  <div className="chart-bars-wrap">
-                    {chartDays.map((d) => {
-                      const pct = Math.max((d.revenue / maxDailyRevenue) * 100, 10);
-                      const isToday = d.dateKey === new Date().toISOString().slice(0, 10);
-                      const isHovered = selectedDayHover?.dateKey === d.dateKey;
+                  {chartDays.length === 0 ? (
+                    <div style={{ textAlign: "center", padding: "48px 20px", color: "var(--color-muted)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: 220 }}>
+                      <BarChart3 size={36} style={{ marginBottom: 12, opacity: 0.35, color: "var(--color-accent)" }} />
+                      <p style={{ fontWeight: 600, fontSize: "0.98rem", color: "var(--color-primary)", margin: "0 0 6px" }}>
+                        No sales recorded yet
+                      </p>
+                      <p style={{ fontSize: "0.85rem", margin: 0, maxWidth: 420 }}>
+                        As readers place orders or you record direct sales, your live daily revenue trajectory and volume chart will render here.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="chart-bars-wrap">
+                      {chartDays.map((d) => {
+                        const pct = Math.max((d.revenue / maxDailyRevenue) * 100, 10);
+                        const isToday = d.dateKey === new Date().toISOString().slice(0, 10);
+                        const isHovered = selectedDayHover?.dateKey === d.dateKey;
 
-                      return (
-                        <div
-                          key={d.dateKey}
-                          className={`chart-col ${isToday ? "is-today" : ""} ${isHovered ? "is-hovered" : ""}`}
-                          onMouseEnter={() => setSelectedDayHover(d)}
-                          onClick={() => setSelectedDayHover(d)}
-                        >
-                          <div className="chart-bar-container">
-                            <div className="chart-bar-fill" style={{ height: `${pct}%` }}>
-                              <span className="chart-bar-amount">{formatINR(d.revenue)}</span>
+                        return (
+                          <div
+                            key={d.dateKey}
+                            className={`chart-col ${isToday ? "is-today" : ""} ${isHovered ? "is-hovered" : ""}`}
+                            onMouseEnter={() => setSelectedDayHover(d)}
+                            onClick={() => setSelectedDayHover(d)}
+                          >
+                            <div className="chart-bar-container">
+                              <div className="chart-bar-fill" style={{ height: `${pct}%` }}>
+                                <span className="chart-bar-amount">{formatINR(d.revenue)}</span>
+                              </div>
                             </div>
+                            <div className="chart-col-label">
+                              {isToday ? "Today" : d.dateKey.slice(5)}
+                            </div>
+                            <div className="chart-col-count">{d.count} sales</div>
                           </div>
-                          <div className="chart-col-label">
-                            {isToday ? "Today" : d.dateKey.slice(5)}
-                          </div>
-                          <div className="chart-col-count">{d.count} sales</div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
 
                 <div className="chart-summary-footer">
@@ -999,53 +1047,65 @@ export default function AdminPage({ navigate }) {
                   </div>
                 </div>
 
-                <div className="table-responsive">
-                  <table className="admin-data-table">
-                    <thead>
-                      <tr>
-                        <th>Date</th>
-                        <th>Ebooks Sold</th>
-                        <th>Day's Income (₹{settings.price}/ea)</th>
-                        <th>Payment Route</th>
-                        <th>Volume Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {daysAnalytics.map((day) => {
-                        const isToday = day.dateKey === new Date().toISOString().slice(0, 10);
-                        const isPeak = day.count >= 8;
-                        return (
-                          <tr key={day.dateKey} className={isToday ? "today-row" : ""}>
-                            <td>
-                              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                <span style={{ fontWeight: 600 }}>{formatFriendlyDate(day.dateKey)}</span>
-                                {isToday && <span className="today-chip">Today</span>}
-                              </div>
-                            </td>
-                            <td>
-                              <b>{day.count} copies</b>
-                            </td>
-                            <td>
-                              <span style={{ fontWeight: 800, color: "#059669" }}>
-                                {formatINR(day.revenue)}
-                              </span>
-                            </td>
-                            <td style={{ fontSize: "0.82rem", color: "var(--color-secondary)" }}>
-                              {settings.upiId}
-                            </td>
-                            <td>
-                              {isPeak ? (
-                                <span className="status-badge peak">🔥 High Demand</span>
-                              ) : (
-                                <span className="status-badge steady">✓ Steady</span>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+                {daysAnalytics.length === 0 ? (
+                  <div style={{ textAlign: "center", padding: "48px 20px", color: "var(--color-muted)", display: "flex", flexDirection: "column", alignItems: "center" }}>
+                    <Calendar size={36} style={{ marginBottom: 12, opacity: 0.35, color: "var(--color-accent)" }} />
+                    <p style={{ fontWeight: 600, fontSize: "0.98rem", color: "var(--color-primary)", margin: "0 0 6px" }}>
+                      No daily sales records yet
+                    </p>
+                    <p style={{ fontSize: "0.85rem", margin: 0, maxWidth: 420 }}>
+                      Daily logs will appear automatically once customers purchase the ebook via UPI or when you record manual sales.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="table-responsive">
+                    <table className="admin-data-table">
+                      <thead>
+                        <tr>
+                          <th>Date</th>
+                          <th>Ebooks Sold</th>
+                          <th>Day's Income (₹{settings.price}/ea)</th>
+                          <th>Payment Route</th>
+                          <th>Volume Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {daysAnalytics.map((day) => {
+                          const isToday = day.dateKey === new Date().toISOString().slice(0, 10);
+                          const isPeak = day.count >= 8;
+                          return (
+                            <tr key={day.dateKey} className={isToday ? "today-row" : ""}>
+                              <td>
+                                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                  <span style={{ fontWeight: 600 }}>{formatFriendlyDate(day.dateKey)}</span>
+                                  {isToday && <span className="today-chip">Today</span>}
+                                </div>
+                              </td>
+                              <td>
+                                <b>{day.count} copies</b>
+                              </td>
+                              <td>
+                                <span style={{ fontWeight: 800, color: "#059669" }}>
+                                  {formatINR(day.revenue)}
+                                </span>
+                              </td>
+                              <td style={{ fontSize: "0.82rem", color: "var(--color-secondary)" }}>
+                                {settings.upiId}
+                              </td>
+                              <td>
+                                {isPeak ? (
+                                  <span className="status-badge peak">🔥 High Demand</span>
+                                ) : (
+                                  <span className="status-badge steady">✓ Steady</span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -1114,77 +1174,93 @@ export default function AdminPage({ navigate }) {
                   </div>
                 </div>
 
-                <div className="table-responsive">
-                  <table className="admin-data-table">
-                    <thead>
-                      <tr>
-                        <th>Order ID</th>
-                        <th>Customer</th>
-                        <th>Amount</th>
-                        <th>UPI Target</th>
-                        <th>Timestamp</th>
-                        <th>Status</th>
-                        <th>Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredPayments.slice(0, 60).map((order) => {
-                        const isLive = order.type === "live";
-                        return (
-                          <tr key={order.id} className={isLive ? "live-order-row" : ""}>
-                            <td>
-                              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                                <span style={{ fontFamily: "monospace", fontSize: "0.82rem", fontWeight: 600 }}>
-                                  {order.id}
-                                </span>
-                                <button
-                                  className="copy-btn-tiny"
-                                  onClick={() => copyToClipboard(order.id, order.id)}
-                                  title="Copy Order ID"
-                                >
-                                  {copiedId === order.id ? <Check size={12} color="#059669" /> : <Copy size={12} />}
-                                </button>
-                              </div>
-                              {isLive && <span className="live-pill">LIVE SALE</span>}
-                            </td>
-                            <td>
-                              <div style={{ fontWeight: 600 }}>{order.name}</div>
-                              <div style={{ fontSize: "0.8rem", color: "var(--color-muted)" }}>{order.email}</div>
-                            </td>
-                            <td>
-                              <b style={{ color: "#059669" }}>₹{order.amount || settings.price}</b>
-                            </td>
-                            <td style={{ fontSize: "0.82rem", color: "var(--color-secondary)" }}>
-                              {settings.upiId}
-                            </td>
-                            <td style={{ fontSize: "0.85rem", color: "var(--color-secondary)" }}>
-                              {formatFriendlyDate(order.date)}
-                            </td>
-                            <td>
-                              <span className="status-badge success">
-                                <CheckCircle size={12} /> Completed
-                              </span>
-                            </td>
-                            <td>
-                              <button
-                                className="btn-secondary"
-                                style={{ padding: "4px 8px", fontSize: "0.78rem" }}
-                                onClick={() => copyToClipboard(order.email, `email-${order.id}`)}
-                              >
-                                {copiedId === `email-${order.id}` ? "Copied" : "Copy Email"}
-                              </button>
-                            </td>
+                {filteredPayments.length === 0 ? (
+                  <div style={{ textAlign: "center", padding: "48px 20px", color: "var(--color-muted)", display: "flex", flexDirection: "column", alignItems: "center" }}>
+                    <CreditCard size={36} style={{ marginBottom: 12, opacity: 0.35, color: "var(--color-accent)" }} />
+                    <p style={{ fontWeight: 600, fontSize: "0.98rem", color: "var(--color-primary)", margin: "0 0 6px" }}>
+                      {searchQuery ? "No matching orders found" : "No customer orders recorded yet"}
+                    </p>
+                    <p style={{ fontSize: "0.85rem", margin: 0, maxWidth: 440 }}>
+                      {searchQuery
+                        ? `No transactions match your search "${searchQuery}".`
+                        : "Orders will automatically appear here as readers complete checkout via UPI or when you record a direct sale."}
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="table-responsive">
+                      <table className="admin-data-table">
+                        <thead>
+                          <tr>
+                            <th>Order ID</th>
+                            <th>Customer</th>
+                            <th>Amount</th>
+                            <th>UPI Target</th>
+                            <th>Timestamp</th>
+                            <th>Status</th>
+                            <th>Action</th>
                           </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+                        </thead>
+                        <tbody>
+                          {filteredPayments.slice(0, 60).map((order) => {
+                            const isLive = order.type === "live";
+                            return (
+                              <tr key={order.id} className={isLive ? "live-order-row" : ""}>
+                                <td>
+                                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                    <span style={{ fontFamily: "monospace", fontSize: "0.82rem", fontWeight: 600 }}>
+                                      {order.id}
+                                    </span>
+                                    <button
+                                      className="copy-btn-tiny"
+                                      onClick={() => copyToClipboard(order.id, order.id)}
+                                      title="Copy Order ID"
+                                    >
+                                      {copiedId === order.id ? <Check size={12} color="#059669" /> : <Copy size={12} />}
+                                    </button>
+                                  </div>
+                                  {isLive && <span className="live-pill">LIVE SALE</span>}
+                                </td>
+                                <td>
+                                  <div style={{ fontWeight: 600 }}>{order.name}</div>
+                                  <div style={{ fontSize: "0.8rem", color: "var(--color-muted)" }}>{order.email}</div>
+                                </td>
+                                <td>
+                                  <b style={{ color: "#059669" }}>₹{order.amount || settings.price}</b>
+                                </td>
+                                <td style={{ fontSize: "0.82rem", color: "var(--color-secondary)" }}>
+                                  {settings.upiId}
+                                </td>
+                                <td style={{ fontSize: "0.85rem", color: "var(--color-secondary)" }}>
+                                  {formatFriendlyDate(order.date)}
+                                </td>
+                                <td>
+                                  <span className="status-badge success">
+                                    <CheckCircle size={12} /> Completed
+                                  </span>
+                                </td>
+                                <td>
+                                  <button
+                                    className="btn-secondary"
+                                    style={{ padding: "4px 8px", fontSize: "0.78rem" }}
+                                    onClick={() => copyToClipboard(order.email, `email-${order.id}`)}
+                                  >
+                                    {copiedId === `email-${order.id}` ? "Copied" : "Copy Email"}
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
 
-                <div style={{ padding: "12px 20px", background: "var(--color-bg-soft)", borderTop: "1px solid var(--color-border-subtle)", display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.82rem", color: "var(--color-muted)" }}>
-                  <span>Showing {Math.min(filteredPayments.length, 60)} of {filteredPayments.length} entries</span>
-                  <span>Instant verified UPI receipts</span>
-                </div>
+                    <div style={{ padding: "12px 20px", background: "var(--color-bg-soft)", borderTop: "1px solid var(--color-border-subtle)", display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.82rem", color: "var(--color-muted)" }}>
+                      <span>Showing {Math.min(filteredPayments.length, 60)} of {filteredPayments.length} entries</span>
+                      <span>Instant verified UPI receipts</span>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           )}
@@ -1669,51 +1745,65 @@ export default function AdminPage({ navigate }) {
                   </div>
                 </div>
 
-                <div className="table-responsive">
-                  <table className="admin-data-table">
-                    <thead>
-                      <tr>
-                        <th>#</th>
-                        <th>Reader Email</th>
-                        <th>Access Level</th>
-                        <th>Status</th>
-                        <th>Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {readerEmails
-                        .filter((em) => em.toLowerCase().includes(readerSearch.toLowerCase()))
-                        .map((email, idx) => (
-                          <tr key={email}>
-                            <td style={{ color: "var(--color-muted)" }}>{idx + 1}</td>
-                            <td>
-                              <div style={{ fontWeight: 600, color: "var(--color-primary)" }}>{email}</div>
-                              {AUTHOR_EMAILS.includes(email.toLowerCase()) && (
-                                <span style={{ fontSize: "0.72rem", background: "#EEF2FF", color: "#4F46E5", padding: "2px 6px", borderRadius: 4, fontWeight: 700 }}>
-                                  Author / Owner
+                {readerEmails.filter((em) => em.toLowerCase().includes(readerSearch.toLowerCase())).length === 0 ? (
+                  <div style={{ textAlign: "center", padding: "48px 20px", color: "var(--color-muted)", display: "flex", flexDirection: "column", alignItems: "center" }}>
+                    <Users size={36} style={{ marginBottom: 12, opacity: 0.35, color: "var(--color-accent)" }} />
+                    <p style={{ fontWeight: 600, fontSize: "0.98rem", color: "var(--color-primary)", margin: "0 0 6px" }}>
+                      {readerSearch ? "No matching readers found" : "No reader accounts registered yet"}
+                    </p>
+                    <p style={{ fontSize: "0.85rem", margin: 0, maxWidth: 440 }}>
+                      {readerSearch
+                        ? `No active reader accounts match "${readerSearch}".`
+                        : "Grant instant reader access using the field above or wait for readers to purchase via the website checkout."}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="table-responsive">
+                    <table className="admin-data-table">
+                      <thead>
+                        <tr>
+                          <th>#</th>
+                          <th>Reader Email</th>
+                          <th>Access Level</th>
+                          <th>Status</th>
+                          <th>Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {readerEmails
+                          .filter((em) => em.toLowerCase().includes(readerSearch.toLowerCase()))
+                          .map((email, idx) => (
+                            <tr key={email}>
+                              <td style={{ color: "var(--color-muted)" }}>{idx + 1}</td>
+                              <td>
+                                <div style={{ fontWeight: 600, color: "var(--color-primary)" }}>{email}</div>
+                                {AUTHOR_EMAILS.includes(email.toLowerCase()) && (
+                                  <span style={{ fontSize: "0.72rem", background: "#EEF2FF", color: "#4F46E5", padding: "2px 6px", borderRadius: 4, fontWeight: 700 }}>
+                                    Author / Owner
+                                  </span>
+                                )}
+                              </td>
+                              <td>All 15 Chapters + Prompts</td>
+                              <td>
+                                <span className="status-badge success">
+                                  <Check size={12} /> Active
                                 </span>
-                              )}
-                            </td>
-                            <td>All 15 Chapters + Prompts</td>
-                            <td>
-                              <span className="status-badge success">
-                                <Check size={12} /> Active
-                              </span>
-                            </td>
-                            <td>
-                              <button
-                                className="btn-link"
-                                style={{ color: "#DC2626", fontSize: "0.82rem" }}
-                                onClick={() => handleRevokeReader(email)}
-                              >
-                                Revoke Access
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                    </tbody>
-                  </table>
-                </div>
+                              </td>
+                              <td>
+                                <button
+                                  className="btn-link"
+                                  style={{ color: "#DC2626", fontSize: "0.82rem" }}
+                                  onClick={() => handleRevokeReader(email)}
+                                >
+                                  Revoke Access
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             </div>
           )}

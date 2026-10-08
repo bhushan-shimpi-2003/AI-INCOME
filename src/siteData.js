@@ -197,6 +197,8 @@ export function saveSingleChapter(chapterId, updatedData) {
     };
     localStorage.setItem(CHAPTERS_STORAGE_KEY, JSON.stringify(customOverrides));
     window.dispatchEvent(new Event("chapters_updated"));
+    // Asynchronously sync with backend
+    saveChapterApi(chapterId, updatedData).catch(() => {});
     return true;
   } catch (e) {
     return false;
@@ -213,6 +215,7 @@ export function resetChapterToDefault(chapterId) {
       localStorage.setItem(CHAPTERS_STORAGE_KEY, JSON.stringify(customOverrides));
       window.dispatchEvent(new Event("chapters_updated"));
     }
+    resetChapterApi(chapterId).catch(() => {});
     return true;
   } catch (e) {
     return false;
@@ -224,8 +227,229 @@ export function resetAllChaptersToDefault() {
   try {
     localStorage.removeItem(CHAPTERS_STORAGE_KEY);
     window.dispatchEvent(new Event("chapters_updated"));
+    resetAllChaptersApi().catch(() => {});
     return true;
   } catch (e) {
     return false;
+  }
+}
+
+// ==========================================
+// BACKEND POSTGRESQL API CLIENT
+// ==========================================
+
+export async function apiFetch(endpoint, options = {}) {
+  const url = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
+  const defaultHeaders = {
+    "Content-Type": "application/json"
+  };
+
+  const response = await fetch(url, {
+    ...options,
+    headers: {
+      ...defaultHeaders,
+      ...(options.headers || {})
+    }
+  });
+
+  if (!response.ok) {
+    let errorData = null;
+    try {
+      errorData = await response.json();
+    } catch {
+      errorData = { error: response.statusText };
+    }
+    throw new Error(errorData?.error || `Request failed with status ${response.status}`);
+  }
+
+  return response.json();
+}
+
+// 1. Settings APIs
+export async function fetchSiteSettingsApi() {
+  try {
+    const data = await apiFetch("/api/settings");
+    if (data) {
+      localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(data));
+      window.dispatchEvent(new Event("site_settings_updated"));
+      return data;
+    }
+  } catch (err) {
+    console.warn("Falling back to local site settings:", err.message);
+  }
+  return getSiteSettings();
+}
+
+export async function saveSiteSettingsApi(newSettings) {
+  saveSiteSettings(newSettings);
+  try {
+    const updated = await apiFetch("/api/settings", {
+      method: "PUT",
+      body: JSON.stringify(newSettings)
+    });
+    localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(updated));
+    window.dispatchEvent(new Event("site_settings_updated"));
+    return updated;
+  } catch (err) {
+    console.error("Failed to sync settings with database:", err);
+    return newSettings;
+  }
+}
+
+// 2. Chapters APIs
+export async function fetchChaptersApi() {
+  try {
+    const chapters = await apiFetch("/api/chapters");
+    if (Array.isArray(chapters) && chapters.length > 0) {
+      // Update local cache
+      const overrides = {};
+      chapters.forEach(ch => {
+        if (ch.isCustom) {
+          overrides[ch.id] = {
+            title: ch.title,
+            desc: ch.description,
+            readTime: ch.readTime,
+            blocks: ch.blocks
+          };
+        }
+      });
+      localStorage.setItem(CHAPTERS_STORAGE_KEY, JSON.stringify(overrides));
+      window.dispatchEvent(new Event("chapters_updated"));
+      return chapters;
+    }
+  } catch (err) {
+    console.warn("Falling back to local chapters:", err.message);
+  }
+  return getMergedChapters();
+}
+
+export async function saveChapterApi(chapterId, updatedData) {
+  try {
+    return await apiFetch(`/api/chapters/${chapterId}`, {
+      method: "PUT",
+      body: JSON.stringify(updatedData)
+    });
+  } catch (err) {
+    console.error(`Failed to save chapter ${chapterId} to database:`, err);
+    throw err;
+  }
+}
+
+export async function resetChapterApi(chapterId) {
+  try {
+    return await apiFetch(`/api/chapters/${chapterId}/reset`, {
+      method: "POST"
+    });
+  } catch (err) {
+    console.error(`Failed to reset chapter ${chapterId}:`, err);
+  }
+}
+
+export async function resetAllChaptersApi() {
+  try {
+    return await apiFetch("/api/chapters/reset-all", {
+      method: "POST"
+    });
+  } catch (err) {
+    console.error("Failed to reset all chapters:", err);
+  }
+}
+
+// 3. Orders & Analytics APIs
+export async function fetchOrdersApi() {
+  try {
+    return await apiFetch("/api/orders");
+  } catch (err) {
+    console.error("Failed to fetch orders from database:", err);
+    return [];
+  }
+}
+
+export async function fetchAnalyticsApi() {
+  try {
+    return await apiFetch("/api/orders/analytics");
+  } catch (err) {
+    console.error("Failed to fetch analytics from database:", err);
+    return {
+      totalRevenue: 0,
+      totalSales: 0,
+      todaySales: 0,
+      todayIncome: 0,
+      uniqueReaders: 0,
+      dailyBreakdown: [],
+      recentOrders: []
+    };
+  }
+}
+
+export async function createOrderApi(orderData) {
+  return await apiFetch("/api/orders", {
+    method: "POST",
+    body: JSON.stringify(orderData)
+  });
+}
+
+export async function deleteOrderApi(orderId) {
+  return await apiFetch(`/api/orders/${orderId}`, {
+    method: "DELETE"
+  });
+}
+
+// 4. Readers APIs
+export async function fetchReadersApi() {
+  try {
+    return await apiFetch("/api/readers");
+  } catch (err) {
+    console.error("Failed to fetch readers:", err);
+    return [];
+  }
+}
+
+export async function verifyReaderAccessApi(email) {
+  try {
+    return await apiFetch(`/api/readers/verify?email=${encodeURIComponent(email)}`);
+  } catch (err) {
+    console.error("Failed to verify reader access:", err);
+    return { unlocked: false, error: err.message };
+  }
+}
+
+export async function grantReaderApi(email, name, notes) {
+  return await apiFetch("/api/readers", {
+    method: "POST",
+    body: JSON.stringify({ email, name, notes })
+  });
+}
+
+export async function revokeReaderApi(email) {
+  return await apiFetch(`/api/readers/${encodeURIComponent(email)}/revoke`, {
+    method: "POST"
+  });
+}
+
+// 5. Contact Inquiries API
+export async function submitContactInquiryApi(formData) {
+  return await apiFetch("/api/contact", {
+    method: "POST",
+    body: JSON.stringify(formData)
+  });
+}
+
+// 6. Reviews & FAQs APIs
+export async function fetchReviewsApi() {
+  try {
+    return await apiFetch("/api/reviews");
+  } catch (err) {
+    console.warn("Failed to fetch reviews:", err);
+    return [];
+  }
+}
+
+export async function fetchFaqsApi() {
+  try {
+    return await apiFetch("/api/faqs");
+  } catch (err) {
+    console.warn("Failed to fetch FAQs:", err);
+    return [];
   }
 }
