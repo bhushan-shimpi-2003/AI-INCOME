@@ -7,6 +7,7 @@ import chaptersRouter from "./routes/chapters.js";
 import contactRouter from "./routes/contact.js";
 import reviewsRouter from "./routes/reviews.js";
 import faqsRouter from "./routes/faqs.js";
+import adminRouter from "./routes/admin.js";
 
 const app = express();
 
@@ -39,6 +40,7 @@ app.use("/api/chapters", chaptersRouter);
 app.use("/api/contact", contactRouter);
 app.use("/api/reviews", reviewsRouter);
 app.use("/api/faqs", faqsRouter);
+app.use("/api/admin", adminRouter);
 
 // Catch-all 404 for unhandled API routes
 app.use("/api", (req, res) => {

@@ -1421,15 +1421,15 @@ function ThankYouPage({ navigate, siteSettings = getSiteSettings() }) {
   );
 }
 
-// 10. LOGIN / ACCESS RESTORATION PAGE
+// 10. LOGIN / USER EMAIL PURCHASE VERIFICATION PAGE
 function LoginPage({ navigate, setUnlocked, unlocked, siteSettings = getSiteSettings() }) {
   const currentPrice = siteSettings?.price || 79;
   const currentUpi = siteSettings?.upiId || "bhushan.shimpi1@ybl";
   const supportEmail = siteSettings?.supportEmail || LEGAL_DETAILS.email;
   const [email, setEmail] = useState("");
-  const [message, setMessage] = useState(null);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [verificationResult, setVerificationResult] = useState(null);
   const [currentUser, setCurrentUser] = useState(() => localStorage.getItem(CURRENT_USER_KEY) || "");
-  const [unlinkedEmail, setUnlinkedEmail] = useState("");
 
   const AUTHOR_EMAILS = [
     LEGAL_DETAILS.email.toLowerCase(),
@@ -1439,149 +1439,82 @@ function LoginPage({ navigate, setUnlocked, unlocked, siteSettings = getSiteSett
     "support@aiincomeguide.com"
   ];
 
-  const handleLogin = (e) => {
+  const handleVerifyEmail = async (e) => {
     e.preventDefault();
     const cleanEmail = email.trim().toLowerCase();
     if (!cleanEmail || !cleanEmail.includes("@")) {
-      setMessage({ type: "error", text: "Please enter a valid email address." });
+      setVerificationResult({
+        purchased: false,
+        error: true,
+        message: "Please enter a valid email address to verify."
+      });
       return;
     }
 
-    // Check stored purchase records
-    const storedCustomer = (() => {
-      try {
-        return JSON.parse(localStorage.getItem("ai_income_customer")) || {};
-      } catch {
-        return {};
-      }
-    })();
-    const storedEmails = (() => {
-      try {
-        return JSON.parse(localStorage.getItem(EMAILS_STORAGE_KEY)) || [];
-      } catch {
-        return [];
-      }
-    })();
-
-    const isDirectMatch =
-      storedEmails.includes(cleanEmail) ||
-      (storedCustomer.email && storedCustomer.email.toLowerCase() === cleanEmail) ||
-      AUTHOR_EMAILS.includes(cleanEmail);
-
-    if (isDirectMatch) {
-      setUnlocked(true);
-      localStorage.setItem(STORAGE_KEY, "true");
-      localStorage.setItem(CURRENT_USER_KEY, cleanEmail);
-      if (!storedEmails.includes(cleanEmail)) {
-        storedEmails.push(cleanEmail);
-        localStorage.setItem(EMAILS_STORAGE_KEY, JSON.stringify(storedEmails));
-      }
-      setCurrentUser(cleanEmail);
-      setMessage({
-        type: "success",
-        text: `Purchase verified! Welcome back, ${cleanEmail}. Loading ebook...`
-      });
-      setTimeout(() => {
-        navigate("chapter-1");
-      }, 700);
-      return;
-    }
-
-    // Check with PostgreSQL backend if not cached locally
-    verifyReaderAccessApi(cleanEmail)
-      .then((res) => {
-        if (res && res.unlocked) {
-          setUnlocked(true);
-          localStorage.setItem(STORAGE_KEY, "true");
-          localStorage.setItem(CURRENT_USER_KEY, cleanEmail);
-          const currentList = (() => {
-            try { return JSON.parse(localStorage.getItem(EMAILS_STORAGE_KEY)) || []; } catch { return []; }
-          })();
-          if (!currentList.includes(cleanEmail)) {
-            currentList.push(cleanEmail);
-            localStorage.setItem(EMAILS_STORAGE_KEY, JSON.stringify(currentList));
-          }
-          setCurrentUser(cleanEmail);
-          setMessage({
-            type: "success",
-            text: `Purchase verified via database! Welcome back, ${cleanEmail}. Loading ebook...`
-          });
-          setTimeout(() => {
-            navigate("chapter-1");
-          }, 600);
-        } else {
-          setUnlinkedEmail(cleanEmail);
-          setMessage({
-            type: "info",
-            text: `No active purchase found for "${cleanEmail}". If you completed payment, click below to unlock or purchase access.`
-          });
-        }
-      })
-      .catch(() => {
-        setUnlinkedEmail(cleanEmail);
-        setMessage({
-          type: "info",
-          text: `No prior purchase record found for "${cleanEmail}" on this browser.`
-        });
-      });
-  };
-
-  const handleRestorePaidAccess = () => {
-    const targetEmail = (unlinkedEmail || email).trim().toLowerCase();
-    if (!targetEmail || !targetEmail.includes("@")) return;
-
-    const storedEmails = (() => {
-      try {
-        return JSON.parse(localStorage.getItem(EMAILS_STORAGE_KEY)) || [];
-      } catch {
-        return [];
-      }
-    })();
-
-    if (!storedEmails.includes(targetEmail)) {
-      storedEmails.push(targetEmail);
-      localStorage.setItem(EMAILS_STORAGE_KEY, JSON.stringify(storedEmails));
-    }
-    localStorage.setItem(STORAGE_KEY, "true");
-    localStorage.setItem(CURRENT_USER_KEY, targetEmail);
-    localStorage.setItem(
-      "ai_income_customer",
-      JSON.stringify({
-        email: targetEmail,
-        amount: currentPrice,
-        restoredAt: new Date().toISOString()
-      })
-    );
-    setUnlocked(true);
-    setCurrentUser(targetEmail);
+    setIsVerifying(true);
+    setVerificationResult(null);
 
     try {
-      const storedOrders = JSON.parse(localStorage.getItem("ai_income_orders")) || [];
-      if (!storedOrders.some((o) => o.email.toLowerCase() === targetEmail)) {
-        storedOrders.unshift({
-          id: "ORD-RESTORED-" + Date.now().toString(36).toUpperCase(),
-          name: targetEmail.split("@")[0],
-          email: targetEmail,
-          amount: currentPrice,
-          currency: "INR",
-          paymentMethod: `UPI (${currentUpi} - Restored)`,
-          date: new Date().toISOString(),
-          status: "Completed",
-          type: "live"
+      const res = await verifyReaderAccessApi(cleanEmail);
+
+      if (res && (res.purchased || res.unlocked)) {
+        // Purchase Verified in PostgreSQL Database
+        setUnlocked(true);
+        localStorage.setItem(STORAGE_KEY, "true");
+        localStorage.setItem(CURRENT_USER_KEY, cleanEmail);
+
+        const currentList = (() => {
+          try { return JSON.parse(localStorage.getItem(EMAILS_STORAGE_KEY)) || []; } catch { return []; }
+        })();
+        if (!currentList.includes(cleanEmail)) {
+          currentList.push(cleanEmail);
+          localStorage.setItem(EMAILS_STORAGE_KEY, JSON.stringify(currentList));
+        }
+
+        setCurrentUser(cleanEmail);
+        setVerificationResult({
+          purchased: true,
+          email: cleanEmail,
+          name: res.name || cleanEmail.split("@")[0],
+          orderId: res.orderId,
+          purchaseDate: res.purchaseDate,
+          status: res.status || "Verified Purchaser",
+          message: res.message || "Purchase verified! Lifetime reader access confirmed."
         });
-        localStorage.setItem("ai_income_orders", JSON.stringify(storedOrders));
+      } else {
+        // No purchase found in Database
+        setVerificationResult({
+          purchased: false,
+          email: cleanEmail,
+          status: "Not Purchased",
+          message: res?.message || `No purchase record found for "${cleanEmail}".`
+        });
       }
-    } catch {}
-
-    grantReaderApi(targetEmail, targetEmail.split("@")[0], "Restored reader via login").catch(() => {});
-
-    setMessage({
-      type: "success",
-      text: `Access verified for ${targetEmail}! Opening ebook...`
-    });
-    setTimeout(() => {
-      navigate("chapter-1");
-    }, 700);
+    } catch (err) {
+      // Local fallback for author or cached sessions
+      if (AUTHOR_EMAILS.includes(cleanEmail)) {
+        setUnlocked(true);
+        localStorage.setItem(STORAGE_KEY, "true");
+        localStorage.setItem(CURRENT_USER_KEY, cleanEmail);
+        setCurrentUser(cleanEmail);
+        setVerificationResult({
+          purchased: true,
+          email: cleanEmail,
+          name: "BHUSHAN KISHOR SHIMPI",
+          status: "Author / Owner",
+          message: "Author access verified! All chapters unlocked."
+        });
+      } else {
+        setVerificationResult({
+          purchased: false,
+          email: cleanEmail,
+          status: "Not Purchased",
+          message: `No completed purchase found for "${cleanEmail}".`
+        });
+      }
+    } finally {
+      setIsVerifying(false);
+    }
   };
 
   const handleLogout = () => {
@@ -1589,62 +1522,50 @@ function LoginPage({ navigate, setUnlocked, unlocked, siteSettings = getSiteSett
     localStorage.removeItem(STORAGE_KEY);
     localStorage.removeItem(CURRENT_USER_KEY);
     setCurrentUser("");
-    setMessage({
-      type: "success",
-      text: "You have been logged out on this device. You can log in anytime using your email."
-    });
+    setVerificationResult(null);
+    setEmail("");
   };
 
   return (
     <div className="section animate-page" style={{ minHeight: "80vh", display: "flex", alignItems: "center" }}>
       <div className="container">
-        <div className="auth-box animate-fade-up">
+        <div className="auth-box animate-fade-up" style={{ maxWidth: 520 }}>
           <div className="auth-header">
             <div className="auth-icon-badge">
-              {unlocked ? <Check size={28} /> : <Mail size={28} />}
+              {unlocked ? <ShieldCheck size={28} /> : <Mail size={28} />}
             </div>
             <span className="eyebrow">
-              {unlocked ? "ACTIVE SUBSCRIPTION" : "READER ACCESS"}
+              {unlocked ? "ACTIVE SUBSCRIPTION" : "PURCHASE VERIFICATION"}
             </span>
-            <h1 style={{ fontSize: "2rem", margin: "4px 0" }}>
-              {unlocked ? "Ebook Unlocked" : "Login to Your Ebook"}
+            <h1 style={{ fontSize: "1.9rem", margin: "4px 0" }}>
+              {unlocked ? "Ebook Access Unlocked" : "Verify Ebook Purchase"}
             </h1>
-            <p style={{ fontSize: "0.95rem", color: "var(--color-secondary)" }}>
+            <p style={{ fontSize: "0.92rem", color: "var(--color-secondary)", margin: "4px 0 0" }}>
               {unlocked
-                ? "You have full lifetime access to all 15 sections and prompt templates."
-                : "Enter the email address you used during purchase to access your copy."}
+                ? "You have full lifetime access to all 15 sections and copy-paste prompt templates."
+                : "Enter your email address to check if you have purchased the ebook and unlock reading access."}
             </p>
           </div>
 
-          {message && (
-            <div className={`auth-message ${message.type}`}>
-              {message.type === "error" ? (
-                <AlertCircle size={18} style={{ flexShrink: 0, marginTop: 2 }} />
-              ) : (
-                <Check size={18} style={{ flexShrink: 0, marginTop: 2 }} />
-              )}
-              <div style={{ flex: 1 }}>{message.text}</div>
-            </div>
-          )}
-
-          {unlocked ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-              <div style={{ padding: 16, background: "var(--color-bg-soft)", border: "1px solid var(--color-border)", borderRadius: "var(--radius-md)" }}>
-                <div style={{ fontSize: "0.85rem", color: "var(--color-secondary)", marginBottom: 4 }}>
-                  Active Reader Account:
+          {/* STATE 1: ALREADY UNLOCKED / ACTIVE READER */}
+          {unlocked && !verificationResult ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 16, marginTop: 24 }}>
+              <div style={{ padding: 18, background: "#ECFDF5", border: "1px solid #A7F3D0", borderRadius: "var(--radius-md)" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#065F46", fontWeight: 700, fontSize: "0.92rem", marginBottom: 6 }}>
+                  <ShieldCheck size={18} /> Verified Reader Account Active
                 </div>
-                <div style={{ fontWeight: 700, fontSize: "1.05rem", color: "var(--color-primary)" }}>
+                <div style={{ fontSize: "1.05rem", fontWeight: 700, color: "var(--color-primary)" }}>
                   {currentUser || "Verified Reader"}
                 </div>
-                <div style={{ fontSize: "0.8rem", color: "#059669", fontWeight: 600, marginTop: 4, display: "flex", alignItems: "center", gap: 6 }}>
-                  <Check size={14} /> All 15 Chapters Unlocked
+                <div style={{ fontSize: "0.82rem", color: "#047857", marginTop: 4 }}>
+                  Lifetime Access • All 15 Manuscript Sections & Prompt Library Unlocked
                 </div>
               </div>
 
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 <button
                   className="btn-primary btn-accent"
-                  style={{ width: "100%", justifyContent: "center" }}
+                  style={{ width: "100%", justifyContent: "center", padding: 14 }}
                   onClick={() => navigate("chapter-1")}
                 >
                   Start Reading Chapter 1 →
@@ -1654,7 +1575,7 @@ function LoginPage({ navigate, setUnlocked, unlocked, siteSettings = getSiteSett
                   style={{ width: "100%", justifyContent: "center" }}
                   onClick={() => navigate("chapters")}
                 >
-                  Browse Chapter Directory
+                  Browse All 15 Chapters
                 </button>
                 {AUTHOR_EMAILS.includes(currentUser.toLowerCase()) && (
                   <button
@@ -1677,8 +1598,100 @@ function LoginPage({ navigate, setUnlocked, unlocked, siteSettings = getSiteSett
                 </button>
               </div>
             </div>
+          ) : verificationResult?.purchased ? (
+            /* STATE 2: VERIFICATION SUCCESS CARD */
+            <div style={{ display: "flex", flexDirection: "column", gap: 16, marginTop: 20 }}>
+              <div style={{ padding: 20, background: "#ECFDF5", border: "1px solid #10B981", borderRadius: "var(--radius-lg)" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, color: "#065F46", marginBottom: 12 }}>
+                  <CheckCircle size={24} color="#059669" />
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: "1.1rem", color: "#065F46" }}>Purchase Verified!</h3>
+                    <span style={{ fontSize: "0.82rem", color: "#047857" }}>Lifetime access confirmed in database</span>
+                  </div>
+                </div>
+
+                <div style={{ fontSize: "0.88rem", display: "flex", flexDirection: "column", gap: 6, color: "var(--color-secondary)", padding: "12px", background: "#FFFFFF", borderRadius: "var(--radius-md)", border: "1px solid #D1FAE5" }}>
+                  <div><b>Customer:</b> {verificationResult.name}</div>
+                  <div><b>Email:</b> {verificationResult.email}</div>
+                  <div><b>Status:</b> <span style={{ color: "#059669", fontWeight: 700 }}>✓ {verificationResult.status}</span></div>
+                  {verificationResult.orderId && (
+                    <div><b>Reference:</b> <code style={{ fontSize: "0.8rem" }}>{verificationResult.orderId}</code></div>
+                  )}
+                </div>
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <button
+                  className="btn-primary btn-accent"
+                  style={{ width: "100%", justifyContent: "center", padding: 14 }}
+                  onClick={() => navigate("chapter-1")}
+                >
+                  Start Reading Introduction (Chapter 1) →
+                </button>
+                <button
+                  className="btn-secondary"
+                  style={{ width: "100%", justifyContent: "center" }}
+                  onClick={() => navigate("chapters")}
+                >
+                  Browse Chapter Directory
+                </button>
+              </div>
+            </div>
+          ) : verificationResult && !verificationResult.purchased ? (
+            /* STATE 3: VERIFICATION FAILED - NOT PURCHASED */
+            <div style={{ display: "flex", flexDirection: "column", gap: 16, marginTop: 20 }}>
+              <div style={{ padding: 20, background: "#FEF2F2", border: "1px solid #FCA5A5", borderRadius: "var(--radius-lg)" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, color: "#991B1B", marginBottom: 10 }}>
+                  <AlertCircle size={24} color="#DC2626" />
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: "1.1rem", color: "#991B1B" }}>No Purchase Record Found</h3>
+                    <span style={{ fontSize: "0.82rem", color: "#B91C1C" }}>Database check completed</span>
+                  </div>
+                </div>
+
+                <p style={{ fontSize: "0.9rem", color: "#7F1D1D", margin: "0 0 10px", lineHeight: 1.5 }}>
+                  We checked our verified buyer database for <b>"{verificationResult.email}"</b>, but no active completed purchase of <b>AI Income for Everyone</b> was found.
+                </p>
+
+                <div style={{ padding: "10px 14px", background: "#FFFFFF", borderRadius: "var(--radius-md)", border: "1px solid #FECACA", fontSize: "0.84rem", color: "#991B1B" }}>
+                  💡 <b>Did you pay with another email?</b> Please verify using the exact email address you entered during checkout.
+                </div>
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <button
+                  className="btn-primary btn-accent"
+                  style={{ width: "100%", justifyContent: "center", padding: 14 }}
+                  onClick={() => navigate("checkout")}
+                >
+                  Buy Ebook for ₹{currentPrice} (Instant Access) →
+                </button>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  style={{ width: "100%", justifyContent: "center" }}
+                  onClick={() => {
+                    setVerificationResult(null);
+                    setEmail("");
+                  }}
+                >
+                  ← Try Another Email Address
+                </button>
+              </div>
+
+              <div style={{ textAlign: "center", fontSize: "0.85rem", color: "var(--color-muted)" }}>
+                Need help with your order?{" "}
+                <span
+                  style={{ color: "var(--color-accent)", cursor: "pointer", fontWeight: 600 }}
+                  onClick={() => navigate("contact")}
+                >
+                  Contact Support
+                </span>
+              </div>
+            </div>
           ) : (
-            <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+            /* STATE 4: DEFAULT VERIFICATION FORM */
+            <form onSubmit={handleVerifyEmail} style={{ display: "flex", flexDirection: "column", gap: 18, marginTop: 20 }}>
               <div className="form-group">
                 <label>Your Email Address *</label>
                 <input
@@ -1686,41 +1699,30 @@ function LoginPage({ navigate, setUnlocked, unlocked, siteSettings = getSiteSett
                   className="form-input"
                   placeholder="e.g. rahul@example.com"
                   value={email}
-                  onChange={(e) => {
-                    setEmail(e.target.value);
-                    if (unlinkedEmail) setUnlinkedEmail("");
-                  }}
-                  autoComplete="username"
+                  onChange={(e) => setEmail(e.target.value)}
+                  autoComplete="email"
+                  autoFocus
                   required
                 />
                 <span style={{ fontSize: "0.8rem", color: "var(--color-secondary)" }}>
-                  Enter the email address you provided at checkout.
+                  Enter the email address used during purchase to verify your access.
                 </span>
               </div>
 
               <button
                 type="submit"
                 className="btn-primary btn-accent"
+                disabled={isVerifying}
                 style={{ width: "100%", padding: 14, fontSize: "1rem", justifyContent: "center", display: "flex", alignItems: "center", gap: 8 }}
               >
-                <Key size={18} /> Access My Ebook →
+                {isVerifying ? (
+                  <>Verifying Purchase Status...</>
+                ) : (
+                  <>
+                    <Key size={18} /> Verify Purchase & Access Ebook →
+                  </>
+                )}
               </button>
-
-              {unlinkedEmail && (
-                <div style={{ padding: 14, background: "#FEF3C7", border: "1px solid #FDE68A", borderRadius: "var(--radius-md)", display: "flex", flexDirection: "column", gap: 10 }}>
-                  <div style={{ fontSize: "0.86rem", color: "#92400E", fontWeight: 600 }}>
-                    Already completed payment of ₹{currentPrice} with {unlinkedEmail}?
-                  </div>
-                  <button
-                    type="button"
-                    className="btn-primary"
-                    onClick={handleRestorePaidAccess}
-                    style={{ width: "100%", justifyContent: "center", fontSize: "0.9rem", padding: "10px 14px" }}
-                  >
-                    ✓ Yes, I Paid ₹{currentPrice} — Unlock Access Now
-                  </button>
-                </div>
-              )}
 
               <div style={{ display: "flex", flexDirection: "column", gap: 10, textAlign: "center", fontSize: "0.88rem", marginTop: 4 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "6px 0" }}>

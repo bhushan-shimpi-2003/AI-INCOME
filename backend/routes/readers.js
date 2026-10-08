@@ -36,58 +36,102 @@ router.get("/", async (req, res) => {
   }
 });
 
-// GET /api/readers/verify?email=... - Check reader access status
+// GET /api/readers/verify?email=... - Check reader purchase & access status
 router.get("/verify", async (req, res) => {
   try {
     const { email } = req.query;
     if (!email || !email.includes("@")) {
-      return res.json({ unlocked: false, message: "Invalid email" });
+      return res.status(400).json({
+        purchased: false,
+        unlocked: false,
+        error: "Please enter a valid email address."
+      });
     }
 
     const cleanEmail = email.trim().toLowerCase();
 
-    // 1. Check readers table
+    // 1. Check orders table (has the user purchased?)
+    const orderRes = await query(
+      "SELECT * FROM orders WHERE LOWER(email) = $1 AND status = 'Completed' ORDER BY created_at DESC LIMIT 1",
+      [cleanEmail]
+    );
+
+    // 2. Check readers table
     const readerRes = await query(
       "SELECT * FROM readers WHERE LOWER(email) = $1 AND is_active = TRUE",
       [cleanEmail]
     );
 
-    if (readerRes.rows.length > 0) {
-      return res.json({
-        unlocked: true,
-        email: cleanEmail,
-        name: readerRes.rows[0].name,
-        source: "reader"
-      });
-    }
-
-    // 2. Check orders table
-    const orderRes = await query(
-      "SELECT * FROM orders WHERE LOWER(email) = $1 AND status = 'Completed' LIMIT 1",
-      [cleanEmail]
-    );
+    // 3. Check author/owner list
+    const AUTHOR_EMAILS = [
+      "bhushanshimpi2003@gmail.com",
+      "shimpibhushan2503@gmail.com",
+      "bhushan.shimpi1@ybl",
+      "support@aiincomeguide.com"
+    ];
 
     if (orderRes.rows.length > 0) {
-      // Auto-upsert into readers
+      const order = orderRes.rows[0];
+      // Ensure reader record exists and is active
       await query(
         `INSERT INTO readers (email, name, is_active, granted_at)
          VALUES ($1, $2, TRUE, NOW())
          ON CONFLICT (email) DO UPDATE SET is_active = TRUE`,
-        [cleanEmail, orderRes.rows[0].name]
+        [cleanEmail, order.name]
       );
 
       return res.json({
+        purchased: true,
         unlocked: true,
         email: cleanEmail,
-        name: orderRes.rows[0].name,
-        source: "order"
+        name: order.name,
+        orderId: order.id,
+        amount: order.amount,
+        purchaseDate: order.created_at,
+        source: "order",
+        status: "Verified Purchaser",
+        message: "Purchase verified successfully! Lifetime reader access confirmed."
       });
     }
 
-    res.json({ unlocked: false, message: "No active access found for this email" });
+    if (readerRes.rows.length > 0) {
+      const reader = readerRes.rows[0];
+      return res.json({
+        purchased: true,
+        unlocked: true,
+        email: cleanEmail,
+        name: reader.name || cleanEmail.split("@")[0],
+        orderId: reader.notes ? "ADMIN-VIP" : "VIP-ACCESS",
+        purchaseDate: reader.granted_at,
+        source: "reader",
+        status: "Verified Reader",
+        message: "Active reader access verified! Ebook is unlocked."
+      });
+    }
+
+    if (AUTHOR_EMAILS.includes(cleanEmail)) {
+      return res.json({
+        purchased: true,
+        unlocked: true,
+        email: cleanEmail,
+        name: "BHUSHAN KISHOR SHIMPI",
+        orderId: "AUTHOR-ACCOUNT",
+        source: "author",
+        status: "Author / Owner",
+        message: "Author access verified! All chapters unlocked."
+      });
+    }
+
+    return res.json({
+      purchased: false,
+      unlocked: false,
+      email: cleanEmail,
+      status: "Not Purchased",
+      message: `No purchase record found for "${cleanEmail}".`
+    });
   } catch (err) {
     console.error("Error verifying access:", err);
-    res.status(500).json({ unlocked: false, error: "Verification failed" });
+    res.status(500).json({ purchased: false, unlocked: false, error: "Verification failed due to a server error." });
   }
 });
 

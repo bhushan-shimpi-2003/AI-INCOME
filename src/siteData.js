@@ -453,3 +453,19 @@ export async function fetchFaqsApi() {
     return [];
   }
 }
+
+// 7. Admin Authentication APIs
+export async function adminLoginApi(loginId, password) {
+  return await apiFetch("/api/admin/login", {
+    method: "POST",
+    body: JSON.stringify({ loginId, password })
+  });
+}
+
+export async function adminChangePasswordApi(currentPassword, newPassword) {
+  return await apiFetch("/api/admin/change-password", {
+    method: "POST",
+    body: JSON.stringify({ currentPassword, newPassword })
+  });
+}
+

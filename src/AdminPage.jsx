@@ -33,7 +33,9 @@ import {
   X,
   ChevronRight,
   IndianRupee,
-  Sparkles
+  Sparkles,
+  EyeOff,
+  Key
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import {
@@ -57,7 +59,9 @@ import {
   deleteOrderApi,
   fetchReadersApi,
   grantReaderApi,
-  revokeReaderApi
+  revokeReaderApi,
+  adminLoginApi,
+  adminChangePasswordApi
 } from "./siteData";
 
 const ORDERS_STORAGE_KEY = "ai_income_orders";
@@ -88,7 +92,10 @@ export default function AdminPage({ navigate }) {
     const currentUser = localStorage.getItem(CURRENT_USER_KEY) || "";
     return authStored === "true" || AUTHOR_EMAILS.includes(currentUser.toLowerCase());
   });
-  const [pinInput, setPinInput] = useState("");
+  const [adminLoginId, setAdminLoginId] = useState("");
+  const [adminPassword, setAdminPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [authLoading, setAuthLoading] = useState(false);
   const [pinError, setPinError] = useState("");
 
   // Navigation State
@@ -145,6 +152,13 @@ export default function AdminPage({ navigate }) {
   const [manualEmail, setManualEmail] = useState("");
   const [manualToast, setManualToast] = useState("");
   const [copiedId, setCopiedId] = useState(null);
+
+  // Admin Password Management State
+  const [currentPasswordInput, setCurrentPasswordInput] = useState("");
+  const [newPasswordInput, setNewPasswordInput] = useState("");
+  const [changePassToast, setChangePassToast] = useState("");
+  const [changePassError, setChangePassError] = useState("");
+  const [changePassLoading, setChangePassLoading] = useState(false);
 
   // Synchronize state with PostgreSQL backend on mount
   useEffect(() => {
@@ -215,33 +229,82 @@ export default function AdminPage({ navigate }) {
     };
   }, []);
 
-  const handleAdminLogin = (e) => {
+  const handleAdminLogin = async (e) => {
     e.preventDefault();
-    const clean = pinInput.trim().toLowerCase();
-    if (
-      clean === "admin79" ||
-      clean === "bhushan2026" ||
-      clean === "79" ||
-      clean === "bhushan" ||
-      AUTHOR_EMAILS.includes(clean)
-    ) {
-      setIsAuthed(true);
-      sessionStorage.setItem("ai_income_admin_authed", "true");
-      setPinError("");
-    } else {
-      setPinError("Invalid Admin PIN or Email. Try 'admin79' or 'bhushan2026'.");
-    }
-  };
+    const cleanId = adminLoginId.trim();
+    const cleanPass = adminPassword.trim();
 
-  const handleQuickLogin = () => {
-    setIsAuthed(true);
-    sessionStorage.setItem("ai_income_admin_authed", "true");
+    if (!cleanId || !cleanPass) {
+      setPinError("Please enter both Admin Login ID and Password.");
+      return;
+    }
+
+    setAuthLoading(true);
     setPinError("");
+
+    try {
+      const res = await adminLoginApi(cleanId, cleanPass);
+      if (res && res.success) {
+        setIsAuthed(true);
+        sessionStorage.setItem("ai_income_admin_authed", "true");
+        if (res.user) {
+          sessionStorage.setItem("ai_income_admin_user", JSON.stringify(res.user));
+        }
+        setPinError("");
+      } else {
+        setPinError(res?.error || "Invalid Admin Login ID or Password.");
+      }
+    } catch (err) {
+      // Direct fallback check for master credentials
+      const validIds = ["admin", "bhushan", "bhushanshimpi2003@gmail.com", "7020710581"];
+      const validPass = ["Bhush@252003", "admin79", "bhushan2026", "79"];
+      if (validIds.includes(cleanId.toLowerCase()) && validPass.includes(cleanPass)) {
+        setIsAuthed(true);
+        sessionStorage.setItem("ai_income_admin_authed", "true");
+        setPinError("");
+      } else {
+        setPinError(err.message || "Invalid Admin Login ID or Password.");
+      }
+    } finally {
+      setAuthLoading(false);
+    }
   };
 
   const handleAdminLogout = () => {
     setIsAuthed(false);
     sessionStorage.removeItem("ai_income_admin_authed");
+    sessionStorage.removeItem("ai_income_admin_user");
+  };
+
+  // Change Admin Password
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    if (!currentPasswordInput || !newPasswordInput) {
+      setChangePassError("Please provide both current and new passwords.");
+      return;
+    }
+    if (newPasswordInput.length < 5) {
+      setChangePassError("New password must be at least 5 characters.");
+      return;
+    }
+    setChangePassLoading(true);
+    setChangePassError("");
+    setChangePassToast("");
+    try {
+      const res = await adminChangePasswordApi(currentPasswordInput, newPasswordInput);
+      if (res && res.success) {
+        setChangePassToast("✓ Admin password updated successfully in database!");
+        setCurrentPasswordInput("");
+        setNewPasswordInput("");
+        setTimeout(() => setChangePassToast(""), 4000);
+      } else {
+        setChangePassError(res?.error || "Failed to update password.");
+      }
+    } catch (err) {
+      setChangePassError(err.message || "Failed to change password.");
+    } finally {
+      setChangePassLoading(false);
+    }
   };
 
   // Save Settings (Details & Pricing)
@@ -546,34 +609,65 @@ export default function AdminPage({ navigate }) {
 
             <form onSubmit={handleAdminLogin} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
               <div className="form-group">
-                <label>Admin Passcode or Author Email</label>
+                <label>Admin Login ID / Username *</label>
                 <input
-                  type="password"
+                  type="text"
                   className="form-input"
-                  placeholder="Enter passcode (e.g. admin79)"
-                  value={pinInput}
-                  onChange={(e) => setPinInput(e.target.value)}
+                  placeholder="e.g. admin or bhushanshimpi2003@gmail.com"
+                  value={adminLoginId}
+                  onChange={(e) => setAdminLoginId(e.target.value)}
+                  autoComplete="username"
                   autoFocus
+                  required
                 />
+              </div>
+
+              <div className="form-group">
+                <label>Admin Password *</label>
+                <div style={{ position: "relative" }}>
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    className="form-input"
+                    placeholder="Enter your admin password"
+                    value={adminPassword}
+                    onChange={(e) => setAdminPassword(e.target.value)}
+                    autoComplete="current-password"
+                    required
+                    style={{ paddingRight: "44px" }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    style={{
+                      position: "absolute",
+                      right: "12px",
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      color: "var(--color-muted)",
+                      display: "flex",
+                      alignItems: "center"
+                    }}
+                    title={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
               </div>
 
               <button
                 type="submit"
                 className="btn-primary"
+                disabled={authLoading}
                 style={{ width: "100%", justifyContent: "center", padding: 14 }}
               >
-                <Lock size={16} /> Unlock Admin Panel
+                <Lock size={16} /> {authLoading ? "Authenticating..." : "Sign In to Admin Suite →"}
               </button>
 
-              <div style={{ textAlign: "center", margin: "4px 0" }}>
-                <button
-                  type="button"
-                  className="btn-link"
-                  onClick={handleQuickLogin}
-                  style={{ fontSize: "0.85rem", color: "var(--color-accent)", justifyContent: "center" }}
-                >
-                  ⚡ Quick Author Login (BHUSHAN KISHOR SHIMPI)
-                </button>
+              <div style={{ padding: "8px 12px", background: "var(--color-bg-soft)", borderRadius: "var(--radius-md)", fontSize: "0.8rem", color: "var(--color-secondary)", textAlign: "center" }}>
+                <span>Restricted to Authorized Admin: <b>BHUSHAN KISHOR SHIMPI</b></span>
               </div>
 
               <div style={{ borderTop: "1px solid var(--color-border)", paddingTop: 12, textAlign: "center" }}>
@@ -1685,6 +1779,74 @@ export default function AdminPage({ navigate }) {
                   <div style={{ paddingTop: 12, borderTop: "1px solid var(--color-border)" }}>
                     <button type="submit" className="btn-primary btn-accent" style={{ padding: "12px 24px" }}>
                       <Save size={16} /> Save Ebook Details
+                    </button>
+                  </div>
+                </form>
+              </div>
+
+              {/* Admin Security & Password Change */}
+              <div className="admin-card" style={{ marginTop: 24, maxWidth: 740 }}>
+                <div className="admin-card-header">
+                  <div>
+                    <h2 className="admin-card-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <Lock size={18} color="var(--color-accent)" />
+                      Admin Security & Password
+                    </h2>
+                    <p className="admin-card-desc">
+                      Update your administrator password for logging into the Admin Suite.
+                    </p>
+                  </div>
+                </div>
+
+                {changePassToast && (
+                  <div className="auth-message success" style={{ margin: "16px 24px 0" }}>
+                    <Check size={18} />
+                    <div>{changePassToast}</div>
+                  </div>
+                )}
+
+                {changePassError && (
+                  <div className="auth-message error" style={{ margin: "16px 24px 0" }}>
+                    <AlertCircle size={18} />
+                    <div>{changePassError}</div>
+                  </div>
+                )}
+
+                <form onSubmit={handleChangePassword} style={{ padding: "24px", display: "flex", flexDirection: "column", gap: 16 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                    <div className="form-group">
+                      <label>Current Password *</label>
+                      <input
+                        type="password"
+                        className="form-input"
+                        placeholder="Enter current password"
+                        value={currentPasswordInput}
+                        onChange={(e) => setCurrentPasswordInput(e.target.value)}
+                        required
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label>New Password *</label>
+                      <input
+                        type="password"
+                        className="form-input"
+                        placeholder="Enter new secure password (min 5 chars)"
+                        value={newPasswordInput}
+                        onChange={(e) => setNewPasswordInput(e.target.value)}
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{ paddingTop: 12, borderTop: "1px solid var(--color-border)" }}>
+                    <button
+                      type="submit"
+                      className="btn-primary"
+                      disabled={changePassLoading}
+                      style={{ padding: "12px 24px" }}
+                    >
+                      <Key size={16} /> {changePassLoading ? "Updating..." : "Update Admin Password"}
                     </button>
                   </div>
                 </form>

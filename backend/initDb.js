@@ -251,6 +251,27 @@ export async function initializeDatabase() {
     console.log("✓ Default FAQs seeded.");
   }
 
+  // 8. Admin Users Table
+  await query(`
+    CREATE TABLE IF NOT EXISTS admin_users (
+      id SERIAL PRIMARY KEY,
+      username VARCHAR(100) UNIQUE NOT NULL,
+      email VARCHAR(255),
+      password_hash VARCHAR(255) NOT NULL,
+      updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    );
+  `);
+
+  const adminCheck = await query("SELECT id FROM admin_users WHERE username = 'admin'");
+  if (adminCheck.rows.length === 0) {
+    await query(`
+      INSERT INTO admin_users (username, email, password_hash)
+      VALUES ('admin', 'bhushanshimpi2003@gmail.com', 'Bhush@252003')
+      ON CONFLICT (username) DO NOTHING;
+    `);
+    console.log("✓ Default admin user seeded.");
+  }
+
   console.log("✓ PostgreSQL Database successfully initialized and verified!");
 }
 
