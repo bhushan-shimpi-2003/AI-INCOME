@@ -35,7 +35,8 @@ import {
   IndianRupee,
   Sparkles,
   EyeOff,
-  Key
+  Key,
+  Clock
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import {
@@ -57,6 +58,9 @@ import {
   fetchOrdersApi,
   createOrderApi,
   deleteOrderApi,
+  fetchPendingOrdersApi,
+  approveOrderApi,
+  rejectOrderApi,
   fetchReadersApi,
   grantReaderApi,
   revokeReaderApi,
@@ -152,6 +156,11 @@ export default function AdminPage({ navigate }) {
   const [manualEmail, setManualEmail] = useState("");
   const [manualToast, setManualToast] = useState("");
   const [copiedId, setCopiedId] = useState(null);
+
+  // Approval Workflow State
+  const [approvingId, setApprovingId] = useState(null);
+  const [rejectingId, setRejectingId] = useState(null);
+  const [approvalToast, setApprovalToast] = useState("");
 
   // Admin Password Management State
   const [currentPasswordInput, setCurrentPasswordInput] = useState("");
@@ -454,7 +463,61 @@ export default function AdminPage({ navigate }) {
     }
   };
 
+  // Approve Order Handler (Unlocks reader & marks order Completed)
+  const handleApproveOrder = async (orderId) => {
+    setApprovingId(orderId);
+    try {
+      const res = await approveOrderApi(orderId);
+      if (res && res.success) {
+        setOrders((prev) =>
+          prev.map((o) => (o.id === orderId ? { ...o, status: "Completed" } : o))
+        );
+        // Refresh readers from backend
+        try {
+          const freshReaders = await fetchReadersApi();
+          if (Array.isArray(freshReaders)) {
+            const activeList = freshReaders.filter((r) => r.isActive).map((r) => r.email);
+            setReaderEmails(activeList);
+            localStorage.setItem(EMAILS_STORAGE_KEY, JSON.stringify(activeList));
+          }
+        } catch {}
+        setApprovalToast(`✓ Order ${orderId} approved! Reader access unlocked.`);
+      }
+    } catch (err) {
+      alert("Failed to approve order: " + err.message);
+    } finally {
+      setApprovingId(null);
+      setTimeout(() => setApprovalToast(""), 3500);
+    }
+  };
+
+  // Reject Order Handler
+  const handleRejectOrder = async (orderId) => {
+    const reason = window.prompt("Reason for rejecting payment request (optional):", "UTR not matching or payment not received");
+    if (reason === null) return;
+
+    setRejectingId(orderId);
+    try {
+      const res = await rejectOrderApi(orderId, reason);
+      if (res && res.success) {
+        setOrders((prev) =>
+          prev.map((o) => (o.id === orderId ? { ...o, status: "Rejected" } : o))
+        );
+        setApprovalToast(`Order ${orderId} marked as Rejected.`);
+      }
+    } catch (err) {
+      alert("Failed to reject order: " + err.message);
+    } finally {
+      setRejectingId(null);
+      setTimeout(() => setApprovalToast(""), 3500);
+    }
+  };
+
   // Analytics Helpers
+  const pendingOrders = useMemo(() => {
+    return orders.filter((o) => o.status === "Pending");
+  }, [orders]);
+
   const activeOrders = useMemo(() => {
     if (filterMode === "live") {
       return orders.filter((o) => o.type === "live");
@@ -462,27 +525,32 @@ export default function AdminPage({ navigate }) {
     return orders;
   }, [orders, filterMode]);
 
+  const completedOrders = useMemo(() => {
+    return activeOrders.filter((o) => o.status === "Completed");
+  }, [activeOrders]);
+
   const kpis = useMemo(() => {
-    const totalRevenue = activeOrders.reduce((sum, o) => sum + (o.amount || Number(settings.price) || 79), 0);
-    const totalSales = activeOrders.length;
+    const totalRevenue = completedOrders.reduce((sum, o) => sum + (o.amount || Number(settings.price) || 79), 0);
+    const totalSales = completedOrders.length;
     const todayStr = new Date().toISOString().slice(0, 10);
-    const todayOrders = activeOrders.filter((o) => o.date && o.date.slice(0, 10) === todayStr);
+    const todayOrders = completedOrders.filter((o) => o.date && o.date.slice(0, 10) === todayStr);
     const todayIncome = todayOrders.reduce((sum, o) => sum + (o.amount || Number(settings.price) || 79), 0);
     const todaySales = todayOrders.length;
-    const uniqueEmails = new Set(activeOrders.map((o) => o.email.toLowerCase()));
+    const uniqueEmails = new Set(completedOrders.map((o) => o.email.toLowerCase()));
 
     return {
       totalRevenue,
       totalSales,
       todayIncome,
       todaySales,
+      pendingCount: pendingOrders.length,
       uniqueCustomers: uniqueEmails.size
     };
-  }, [activeOrders, settings.price]);
+  }, [completedOrders, pendingOrders.length, settings.price]);
 
   const daysAnalytics = useMemo(() => {
     const map = new Map();
-    activeOrders.forEach((o) => {
+    completedOrders.forEach((o) => {
       const dayKey = o.date ? o.date.slice(0, 10) : new Date().toISOString().slice(0, 10);
       if (!map.has(dayKey)) {
         map.set(dayKey, {
@@ -503,7 +571,7 @@ export default function AdminPage({ navigate }) {
     if (dateRange === "14") return sorted.slice(0, 14);
     if (dateRange === "30") return sorted.slice(0, 30);
     return sorted;
-  }, [activeOrders, dateRange, settings.price]);
+  }, [completedOrders, dateRange, settings.price]);
 
   const chartDays = useMemo(() => {
     return [...daysAnalytics].reverse();
@@ -690,6 +758,13 @@ export default function AdminPage({ navigate }) {
   // NAVIGATION TABS CONFIG - CLEAN & SIMPLE
   const navTabs = [
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+    {
+      id: "approvals",
+      label: "Pending Approvals",
+      icon: Clock,
+      badge: pendingOrders.length > 0 ? `${pendingOrders.length}` : null,
+      highlight: pendingOrders.length > 0
+    },
     { id: "daily_sales", label: "Daily Sales", icon: Calendar },
     { id: "payments", label: "Payments", icon: CreditCard, badge: `${orders.length}` },
     { id: "chapters", label: "Chapters", icon: BookOpen, badge: `${chapters.length}` },
@@ -760,7 +835,14 @@ export default function AdminPage({ navigate }) {
                 >
                   <Icon size={17} className="admin-nav-icon" />
                   <span style={{ flex: 1, textAlign: "left" }}>{tab.label}</span>
-                  {tab.badge && <span className="admin-nav-badge">{tab.badge}</span>}
+                  {tab.badge && (
+                    <span
+                      className="admin-nav-badge"
+                      style={tab.highlight ? { background: "#D97706", color: "#FFFFFF", fontWeight: 800 } : {}}
+                    >
+                      {tab.badge}
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -807,6 +889,44 @@ export default function AdminPage({ navigate }) {
                   </p>
                 </div>
               </div>
+
+              {/* PENDING APPROVALS ALERT BANNER */}
+              {pendingOrders.length > 0 && (
+                <div style={{
+                  marginTop: 18,
+                  padding: "16px 20px",
+                  background: "#FFFBEB",
+                  border: "1px solid #FCD34D",
+                  borderRadius: "var(--radius-md)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  flexWrap: "wrap",
+                  gap: 14
+                }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <div style={{ width: 40, height: 40, borderRadius: "50%", background: "#FEF3C7", display: "flex", alignItems: "center", justifyContent: "center", color: "#D97706" }}>
+                      <Clock size={20} />
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: 700, color: "#92400E", fontSize: "0.98rem" }}>
+                        {pendingOrders.length} New Payment Request{pendingOrders.length === 1 ? "" : "s"} Waiting for Approval
+                      </div>
+                      <div style={{ fontSize: "0.82rem", color: "#B45309" }}>
+                        Customers have submitted 12-digit UTR numbers and need verification to access the ebook.
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    style={{ background: "#D97706", borderColor: "#D97706", fontSize: "0.88rem", padding: "8px 16px" }}
+                    onClick={() => setActiveTab("approvals")}
+                  >
+                    Review & Approve ({pendingOrders.length}) →
+                  </button>
+                </div>
+              )}
 
               {/* Data Mode Switcher */}
               <div className="admin-control-bar" style={{ marginTop: 20 }}>
@@ -1017,6 +1137,223 @@ export default function AdminPage({ navigate }) {
                     Search, verify, and copy individual buyer records, timestamps, Order IDs, and export CSV.
                   </p>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB: PENDING APPROVALS PAGE */}
+          {activeTab === "approvals" && (
+            <div className="animate-fade">
+              <div className="admin-pane-header">
+                <div>
+                  <h1 className="admin-pane-title">Pending UPI Payment Approvals</h1>
+                  <p className="admin-pane-desc">
+                    Review submitted 12-digit UPI Transaction / UTR numbers. Approving an order immediately marks the payment as Completed and unlocks lifetime ebook access for the customer.
+                  </p>
+                </div>
+                <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                  <button
+                    className="btn-secondary"
+                    onClick={async () => {
+                      try {
+                        const freshOrders = await fetchOrdersApi();
+                        if (Array.isArray(freshOrders)) setOrders(freshOrders);
+                      } catch {}
+                    }}
+                  >
+                    <RefreshCw size={15} /> Refresh Requests
+                  </button>
+                </div>
+              </div>
+
+              {approvalToast && (
+                <div style={{
+                  marginTop: 16,
+                  padding: "12px 18px",
+                  background: "#ECFDF5",
+                  border: "1px solid #10B981",
+                  borderRadius: "var(--radius-md)",
+                  color: "#065F46",
+                  fontWeight: 600,
+                  fontSize: "0.92rem",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8
+                }}>
+                  <CheckCircle size={18} color="#059669" />
+                  {approvalToast}
+                </div>
+              )}
+
+              {/* Pending Orders Count Summary */}
+              <div style={{
+                marginTop: 20,
+                padding: "16px 20px",
+                background: pendingOrders.length > 0 ? "#FFFBEB" : "#F8FAFC",
+                border: pendingOrders.length > 0 ? "1px solid #FCD34D" : "1px solid var(--color-border)",
+                borderRadius: "var(--radius-md)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                flexWrap: "wrap",
+                gap: 12
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <div style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: "50%",
+                    background: pendingOrders.length > 0 ? "#FEF3C7" : "#E2E8F0",
+                    color: pendingOrders.length > 0 ? "#D97706" : "#64748B",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center"
+                  }}>
+                    <Clock size={20} />
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: "1.05rem", color: "var(--color-primary)" }}>
+                      {pendingOrders.length} Request{pendingOrders.length === 1 ? "" : "s"} Awaiting Admin Approval
+                    </div>
+                    <div style={{ fontSize: "0.82rem", color: "var(--color-secondary)" }}>
+                      Target UPI: <b>{settings.upiId}</b> ({settings.payeeName}) • Expected: <b>₹{settings.price}</b>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ fontSize: "0.82rem", color: "var(--color-muted)" }}>
+                  💡 Check your PhonePe / GPay / Paytm app to verify the matching 12-digit UTR before approving.
+                </div>
+              </div>
+
+              {/* PENDING APPROVALS LIST */}
+              <div className="admin-card" style={{ marginTop: 20 }}>
+                <div className="admin-card-header" style={{ flexWrap: "wrap", gap: 16 }}>
+                  <div>
+                    <h2 className="admin-card-title">Pending Payment Requests ({pendingOrders.length})</h2>
+                    <p className="admin-card-desc">Click "Approve" once you verify that ₹{settings.price} was received.</p>
+                  </div>
+                </div>
+
+                {pendingOrders.length === 0 ? (
+                  <div style={{ textAlign: "center", padding: "54px 20px", color: "var(--color-muted)", display: "flex", flexDirection: "column", alignItems: "center" }}>
+                    <CheckCircle size={44} style={{ marginBottom: 14, color: "#10B981" }} />
+                    <p style={{ fontWeight: 700, fontSize: "1.1rem", color: "var(--color-primary)", margin: "0 0 6px" }}>
+                      All Caught Up! No Pending Approvals
+                    </p>
+                    <p style={{ fontSize: "0.88rem", margin: 0, maxWidth: 460 }}>
+                      When a customer purchases the ebook and submits their 12-digit UPI UTR number, their request will appear here for one-click approval.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="table-responsive">
+                    <table className="admin-data-table">
+                      <thead>
+                        <tr>
+                          <th>Order / Date</th>
+                          <th>Customer Details</th>
+                          <th>12-Digit UPI UTR Number</th>
+                          <th>Amount</th>
+                          <th>Verification Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {pendingOrders.map((order) => {
+                          const utr = order.paymentReference || "N/A";
+                          const isApproving = approvingId === order.id;
+                          const isRejecting = rejectingId === order.id;
+                          return (
+                            <tr key={order.id} style={{ background: "#FFFDF5" }}>
+                              <td>
+                                <div style={{ fontWeight: 600, fontFamily: "monospace", fontSize: "0.84rem" }}>
+                                  {order.id}
+                                </div>
+                                <div style={{ fontSize: "0.78rem", color: "var(--color-muted)", marginTop: 2 }}>
+                                  {formatFriendlyDate(order.date)}
+                                </div>
+                                <span className="live-pill" style={{ background: "#FEF3C7", color: "#92400E", borderColor: "#FDE68A" }}>
+                                  AWAITING UTR CHECK
+                                </span>
+                              </td>
+                              <td>
+                                <div style={{ fontWeight: 700, fontSize: "0.95rem" }}>{order.name}</div>
+                                <div style={{ fontSize: "0.84rem", color: "var(--color-secondary)" }}>{order.email}</div>
+                              </td>
+                              <td>
+                                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                  <code style={{
+                                    fontSize: "1rem",
+                                    fontWeight: 800,
+                                    letterSpacing: "1.5px",
+                                    background: "#FFFFFF",
+                                    padding: "6px 10px",
+                                    borderRadius: 6,
+                                    border: "1px solid #CBD5E1",
+                                    color: "#0F172A"
+                                  }}>
+                                    {utr}
+                                  </code>
+                                  <button
+                                    className="copy-btn-tiny"
+                                    onClick={() => copyToClipboard(utr, `utr-${order.id}`)}
+                                    title="Copy 12-digit UTR to verify in UPI app"
+                                  >
+                                    {copiedId === `utr-${order.id}` ? <Check size={13} color="#059669" /> : <Copy size={13} />}
+                                  </button>
+                                </div>
+                                <div style={{ fontSize: "0.74rem", color: "var(--color-muted)", marginTop: 4 }}>
+                                  Match with bank SMS or UPI app receipt
+                                </div>
+                              </td>
+                              <td>
+                                <b style={{ fontSize: "1.1rem", color: "#059669" }}>
+                                  ₹{order.amount || settings.price}
+                                </b>
+                              </td>
+                              <td>
+                                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                                  <button
+                                    type="button"
+                                    className="btn-primary"
+                                    style={{
+                                      background: "#059669",
+                                      borderColor: "#059669",
+                                      padding: "8px 14px",
+                                      fontSize: "0.85rem",
+                                      display: "flex",
+                                      alignItems: "center",
+                                      gap: 6
+                                    }}
+                                    disabled={isApproving || isRejecting}
+                                    onClick={() => handleApproveOrder(order.id)}
+                                  >
+                                    <Check size={15} />
+                                    {isApproving ? "Approving..." : "Approve & Unlock"}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="btn-secondary"
+                                    style={{
+                                      padding: "8px 12px",
+                                      fontSize: "0.85rem",
+                                      color: "#DC2626",
+                                      borderColor: "#FECACA"
+                                    }}
+                                    disabled={isApproving || isRejecting}
+                                    onClick={() => handleRejectOrder(order.id)}
+                                  >
+                                    <X size={15} />
+                                    {isRejecting ? "Rejecting..." : "Reject"}
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -1288,8 +1625,8 @@ export default function AdminPage({ navigate }) {
                           <tr>
                             <th>Order ID</th>
                             <th>Customer</th>
+                            <th>12-Digit UTR</th>
                             <th>Amount</th>
-                            <th>UPI Target</th>
                             <th>Timestamp</th>
                             <th>Status</th>
                             <th>Action</th>
@@ -1298,6 +1635,7 @@ export default function AdminPage({ navigate }) {
                         <tbody>
                           {filteredPayments.slice(0, 60).map((order) => {
                             const isLive = order.type === "live";
+                            const utr = order.paymentReference;
                             return (
                               <tr key={order.id} className={isLive ? "live-order-row" : ""}>
                                 <td>
@@ -1320,27 +1658,76 @@ export default function AdminPage({ navigate }) {
                                   <div style={{ fontSize: "0.8rem", color: "var(--color-muted)" }}>{order.email}</div>
                                 </td>
                                 <td>
-                                  <b style={{ color: "#059669" }}>₹{order.amount || settings.price}</b>
+                                  {utr ? (
+                                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                      <code style={{ fontSize: "0.86rem", fontWeight: 700, background: "#F1F5F9", padding: "2px 6px", borderRadius: 4, letterSpacing: "1px" }}>
+                                        {utr}
+                                      </code>
+                                      <button
+                                        className="copy-btn-tiny"
+                                        onClick={() => copyToClipboard(utr, `utr-pay-${order.id}`)}
+                                        title="Copy 12-Digit UTR"
+                                      >
+                                        {copiedId === `utr-pay-${order.id}` ? <Check size={12} color="#059669" /> : <Copy size={12} />}
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <span style={{ fontSize: "0.78rem", color: "var(--color-muted)" }}>Manual Entry</span>
+                                  )}
                                 </td>
-                                <td style={{ fontSize: "0.82rem", color: "var(--color-secondary)" }}>
-                                  {settings.upiId}
+                                <td>
+                                  <b style={{ color: "#059669" }}>₹{order.amount || settings.price}</b>
                                 </td>
                                 <td style={{ fontSize: "0.85rem", color: "var(--color-secondary)" }}>
                                   {formatFriendlyDate(order.date)}
                                 </td>
                                 <td>
-                                  <span className="status-badge success">
-                                    <CheckCircle size={12} /> Completed
-                                  </span>
+                                  {order.status === "Pending" ? (
+                                    <span className="status-badge warning" style={{ background: "#FEF3C7", color: "#B45309", border: "1px solid #FDE68A", padding: "3px 8px", borderRadius: 4, fontSize: "0.78rem", display: "inline-flex", alignItems: "center", gap: 4, fontWeight: 700 }}>
+                                      <Clock size={12} /> Pending Approval
+                                    </span>
+                                  ) : order.status === "Rejected" ? (
+                                    <span className="status-badge error" style={{ background: "#FEE2E2", color: "#B91C1C", border: "1px solid #FECACA", padding: "3px 8px", borderRadius: 4, fontSize: "0.78rem", display: "inline-flex", alignItems: "center", gap: 4, fontWeight: 700 }}>
+                                      <X size={12} /> Rejected
+                                    </span>
+                                  ) : (
+                                    <span className="status-badge success" style={{ background: "#ECFDF5", color: "#065F46", border: "1px solid #A7F3D0", padding: "3px 8px", borderRadius: 4, fontSize: "0.78rem", display: "inline-flex", alignItems: "center", gap: 4, fontWeight: 700 }}>
+                                      <CheckCircle size={12} /> Approved
+                                    </span>
+                                  )}
                                 </td>
                                 <td>
-                                  <button
-                                    className="btn-secondary"
-                                    style={{ padding: "4px 8px", fontSize: "0.78rem" }}
-                                    onClick={() => copyToClipboard(order.email, `email-${order.id}`)}
-                                  >
-                                    {copiedId === `email-${order.id}` ? "Copied" : "Copy Email"}
-                                  </button>
+                                  <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                                    {order.status === "Pending" ? (
+                                      <button
+                                        type="button"
+                                        className="btn-primary"
+                                        style={{ background: "#059669", borderColor: "#059669", padding: "4px 8px", fontSize: "0.78rem" }}
+                                        onClick={() => handleApproveOrder(order.id)}
+                                        disabled={approvingId === order.id}
+                                      >
+                                        {approvingId === order.id ? "Approving..." : "Approve"}
+                                      </button>
+                                    ) : (
+                                      <button
+                                        type="button"
+                                        className="btn-secondary"
+                                        style={{ padding: "4px 8px", fontSize: "0.78rem" }}
+                                        onClick={() => copyToClipboard(order.email, `email-${order.id}`)}
+                                      >
+                                        {copiedId === `email-${order.id}` ? "Copied" : "Copy Email"}
+                                      </button>
+                                    )}
+                                    <button
+                                      type="button"
+                                      className="btn-icon-subtle danger"
+                                      style={{ padding: 4, background: "none", border: "none", cursor: "pointer" }}
+                                      onClick={() => handleDeleteOrder(order.id)}
+                                      title="Delete Order Record"
+                                    >
+                                      <Trash2 size={13} color="#EF4444" />
+                                    </button>
+                                  </div>
                                 </td>
                               </tr>
                             );

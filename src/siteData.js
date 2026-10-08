@@ -395,6 +395,28 @@ export async function deleteOrderApi(orderId) {
   });
 }
 
+export async function fetchPendingOrdersApi() {
+  try {
+    return await apiFetch("/api/orders/pending");
+  } catch (err) {
+    console.error("Failed to fetch pending orders:", err);
+    return [];
+  }
+}
+
+export async function approveOrderApi(orderId) {
+  return await apiFetch(`/api/orders/${orderId}/approve`, {
+    method: "POST"
+  });
+}
+
+export async function rejectOrderApi(orderId, reason = "") {
+  return await apiFetch(`/api/orders/${orderId}/reject`, {
+    method: "POST",
+    body: JSON.stringify({ reason })
+  });
+}
+
 // 4. Readers APIs
 export async function fetchReadersApi() {
   try {

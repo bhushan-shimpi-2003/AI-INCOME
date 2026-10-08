@@ -122,6 +122,50 @@ router.get("/verify", async (req, res) => {
       });
     }
 
+    // 4. Check if a Pending order exists for this email
+    const pendingRes = await query(
+      "SELECT * FROM orders WHERE LOWER(email) = $1 AND status = 'Pending' ORDER BY created_at DESC LIMIT 1",
+      [cleanEmail]
+    );
+
+    if (pendingRes.rows.length > 0) {
+      const pOrder = pendingRes.rows[0];
+      return res.json({
+        purchased: false,
+        unlocked: false,
+        pending: true,
+        email: cleanEmail,
+        name: pOrder.name,
+        orderId: pOrder.id,
+        utr: pOrder.payment_reference,
+        amount: Number(pOrder.amount),
+        submissionDate: pOrder.created_at,
+        status: "Pending Verification",
+        message: "Your payment with 12-digit UTR is submitted and awaiting admin approval. Ebook will automatically unlock once approved."
+      });
+    }
+
+    // 5. Check if a Rejected order exists
+    const rejectedRes = await query(
+      "SELECT * FROM orders WHERE LOWER(email) = $1 AND status = 'Rejected' ORDER BY created_at DESC LIMIT 1",
+      [cleanEmail]
+    );
+
+    if (rejectedRes.rows.length > 0) {
+      const rOrder = rejectedRes.rows[0];
+      return res.json({
+        purchased: false,
+        unlocked: false,
+        rejected: true,
+        email: cleanEmail,
+        name: rOrder.name,
+        orderId: rOrder.id,
+        utr: rOrder.payment_reference,
+        status: "Payment Rejected",
+        message: "Your payment verification could not be approved. Please verify your 12-digit UTR or contact support."
+      });
+    }
+
     return res.json({
       purchased: false,
       unlocked: false,
