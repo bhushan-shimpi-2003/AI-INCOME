@@ -56,6 +56,7 @@ const CURRENT_USER_KEY = "ai_income_current_user";
 const STORAGE_KEY = "ai_income_purchased";
 
 const AUTHOR_EMAILS = [
+  "bhushanshimpi2003@gmail.com",
   "shimpibhushan2503@gmail.com",
   "bhushan.shimpi1@ybl",
   "support@aiincomeguide.com"
@@ -551,7 +552,7 @@ export default function AdminPage({ navigate }) {
               <span className="eyebrow">RESTRICTED ACCESS</span>
               <h1 style={{ fontSize: "1.85rem", margin: "6px 0" }}>Admin Suite</h1>
               <p style={{ fontSize: "0.92rem", color: "var(--color-secondary)" }}>
-                Author & CMS Management Portal for <b>Bhushan Shimpi</b>.
+                Author & CMS Management Portal for <b>BHUSHAN KISHOR SHIMPI</b>.
               </p>
             </div>
 
@@ -590,7 +591,7 @@ export default function AdminPage({ navigate }) {
                   onClick={handleQuickLogin}
                   style={{ fontSize: "0.85rem", color: "var(--color-accent)", justifyContent: "center" }}
                 >
-                  ⚡ Quick Author Login (Bhushan Shimpi)
+                  ⚡ Quick Author Login (BHUSHAN KISHOR SHIMPI)
                 </button>
               </div>
 
@@ -1472,7 +1473,7 @@ export default function AdminPage({ navigate }) {
                         className="form-input"
                         value={settings.payeeName}
                         onChange={(e) => setSettings({ ...settings, payeeName: e.target.value })}
-                        placeholder="e.g. Bhushan Shimpi"
+                        placeholder="e.g. BHUSHAN KISHOR SHIMPI"
                         required
                       />
                     </div>
@@ -1510,7 +1511,7 @@ export default function AdminPage({ navigate }) {
                         className="form-input"
                         value={settings.upiNote}
                         onChange={(e) => setSettings({ ...settings, upiNote: e.target.value })}
-                        placeholder="e.g. AI Income Ebook - Bhushan Shimpi"
+                        placeholder="e.g. AI Income Ebook - BHUSHAN KISHOR SHIMPI"
                         required
                       />
                     </div>
@@ -1615,9 +1616,9 @@ export default function AdminPage({ navigate }) {
                     />
                   </div>
 
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14 }}>
                     <div className="form-group">
-                      <label>Author Full Name *</label>
+                      <label>Author / Legal Name *</label>
                       <input
                         type="text"
                         className="form-input"
@@ -1634,6 +1635,17 @@ export default function AdminPage({ navigate }) {
                         className="form-input"
                         value={settings.supportEmail}
                         onChange={(e) => setSettings({ ...settings, supportEmail: e.target.value })}
+                        required
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label>Support Phone Number *</label>
+                      <input
+                        type="tel"
+                        className="form-input"
+                        value={settings.supportPhone || "7020710581"}
+                        onChange={(e) => setSettings({ ...settings, supportPhone: e.target.value })}
                         required
                       />
                     </div>

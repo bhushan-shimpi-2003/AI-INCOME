@@ -2,13 +2,13 @@ import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
   AlertCircle, ArrowLeft, ArrowRight, BookOpen, Check, ChevronDown, ChevronUp,
-  Clock, Copy, Download, ExternalLink, HelpCircle, Key, LogIn, LogOut, Mail, Menu, MessageSquare,
-  QrCode, Shield, Smartphone, Sparkles, Star, User, X, Zap
+  Clock, Copy, Download, ExternalLink, FileText, HelpCircle, Info, Key, LogIn, LogOut, Mail, Menu, MessageSquare,
+  Phone, QrCode, Shield, ShieldCheck, Smartphone, Sparkles, Star, Truck, User, X, Zap
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { ebookSections } from "./ebookContent";
 import AdminPage from "./AdminPage";
-import { getSiteSettings, getMergedChapters } from "./siteData";
+import { getSiteSettings, getMergedChapters, LEGAL_DETAILS } from "./siteData";
 import "./styles.css";
 
 const PREVIEW_LIMIT = 1;
@@ -200,8 +200,10 @@ function Header({ currentRoute, navigate, unlocked, siteSettings = getSiteSettin
 // Reusable Footer Component
 function Footer({ navigate, siteSettings = getSiteSettings() }) {
   const currentPrice = siteSettings?.price || 79;
-  const bookTitle = siteSettings?.bookTitle || "AI Income for Everyone";
-  const authorName = siteSettings?.authorName || "Bhushan";
+  const bookTitle = siteSettings?.bookTitle || LEGAL_DETAILS.bookTitle;
+  const legalName = LEGAL_DETAILS.legalName;
+  const email = LEGAL_DETAILS.email;
+  const phone = LEGAL_DETAILS.phone;
 
   return (
     <footer className="site-footer">
@@ -215,12 +217,18 @@ function Footer({ navigate, siteSettings = getSiteSettings() }) {
             <p>
               A practical, beginner-friendly guide to earning extra income with AI tools. Designed for students, professionals, and homemakers.
             </p>
+            <div style={{ marginTop: 12, fontSize: "0.85rem", color: "var(--color-muted)" }}>
+              <div><b>Legal Owner:</b> {legalName}</div>
+              <div><b>Email:</b> <a href={`mailto:${email}`} style={{ color: "var(--color-primary)", textDecoration: "none" }}>{email}</a></div>
+              <div><b>Phone:</b> <a href={`tel:${LEGAL_DETAILS.rawPhone}`} style={{ color: "var(--color-primary)", textDecoration: "none" }}>{phone}</a></div>
+            </div>
           </div>
 
           <div className="footer-col">
             <h4>Explore</h4>
             <ul className="footer-links">
               <li><button onClick={() => navigate("home")}>Home</button></li>
+              <li><button onClick={() => navigate("about")}>About Us</button></li>
               <li><button onClick={() => navigate("whats-inside")}>What's Inside</button></li>
               <li><button onClick={() => navigate("chapters")}>Chapter Directory</button></li>
               <li><button onClick={() => navigate("reviews")}>Reader Reviews</button></li>
@@ -233,26 +241,28 @@ function Footer({ navigate, siteSettings = getSiteSettings() }) {
               <li><button onClick={() => navigate("pricing")}>Pricing</button></li>
               <li><button onClick={() => navigate("faq")}>FAQ</button></li>
               <li><button onClick={() => navigate("login")}>Reader Login</button></li>
-              <li><button onClick={() => navigate("admin")} style={{ color: "var(--color-accent)", fontWeight: 600 }}>⚡ Admin Dashboard</button></li>
-              <li><button onClick={() => navigate("contact")}>Contact Support</button></li>
               <li><button onClick={() => navigate("checkout")}>Buy Ebook (₹{currentPrice})</button></li>
+              <li><button onClick={() => navigate("contact")}>Contact Support</button></li>
+              <li><button onClick={() => navigate("admin")} style={{ color: "var(--color-accent)", fontWeight: 600 }}>⚡ Admin Portal</button></li>
             </ul>
           </div>
 
           <div className="footer-col">
-            <h4>Legal</h4>
+            <h4>Legal & Policies</h4>
             <ul className="footer-links">
               <li><button onClick={() => navigate("privacy")}>Privacy Policy</button></li>
               <li><button onClick={() => navigate("terms")}>Terms & Conditions</button></li>
-              <li><button onClick={() => navigate("refund")}>Refund Policy</button></li>
+              <li><button onClick={() => navigate("refund")}>Refund & Cancellation Policy</button></li>
+              <li><button onClick={() => navigate("shipping")}>Shipping & Delivery Policy</button></li>
+              <li><button onClick={() => navigate("contact")}>Contact Us</button></li>
             </ul>
           </div>
         </div>
 
         <div className="footer-bottom">
-          <span>© {new Date().getFullYear()} {bookTitle} by {authorName}. All rights reserved.</span>
+          <span>© {new Date().getFullYear()} {bookTitle}. Published & Operated by {legalName}. All rights reserved.</span>
           <span>
-            Digital Publishing & Practical AI Education • <button onClick={() => navigate("admin")} className="btn-link" style={{ fontSize: "0.82rem", color: "var(--color-muted)", padding: 0 }}>Admin Portal</button>
+            Merchant: {legalName} • <a href={`mailto:${email}`} style={{ color: "var(--color-muted)", textDecoration: "none" }}>{email}</a> • <a href={`tel:${LEGAL_DETAILS.rawPhone}`} style={{ color: "var(--color-muted)", textDecoration: "none" }}>{phone}</a>
           </span>
         </div>
       </div>
@@ -301,7 +311,7 @@ function HomePage({ navigate, siteSettings = getSiteSettings() }) {
               <div className="book-physical-frame">
                 <img
                   src="/cover.png"
-                  alt="USE AI TO MAKE EXTRA INCOME Book Cover by Bhushan"
+                  alt="AI Income for Everyone Book Cover by BHUSHAN KISHOR SHIMPI"
                   className="book-cover-photo"
                 />
               </div>
@@ -784,7 +794,7 @@ function ChapterDetailPage({
           <span className="eyebrow">SECTION {String(currentIdx + 1).padStart(2, "0")} OF {chapters.length}</span>
           <h1>{section.title}</h1>
           <span style={{ fontSize: "0.9rem", color: "var(--color-muted)", marginTop: 8, display: "block" }}>
-            Estimated read time: ~{section.readTime || "5 min"} • USE AI TO MAKE EXTRA INCOME by Bhushan
+            Estimated read time: ~{section.readTime || "5 min"} • {siteSettings?.bookTitle || "AI Income for Everyone"} by {siteSettings?.authorName || LEGAL_DETAILS.legalName}
           </span>
         </div>
 
@@ -1021,8 +1031,8 @@ function CheckoutPage({ navigate, setUnlocked, siteSettings = getSiteSettings() 
 
   const UPI_ID = siteSettings?.upiId || "bhushan.shimpi1@ybl";
   const AMOUNT = String(siteSettings?.price || 79);
-  const PAYEE_NAME = siteSettings?.payeeName || "Bhushan Shimpi";
-  const NOTE = siteSettings?.upiNote || "AI Income Ebook - Bhushan Shimpi";
+  const PAYEE_NAME = siteSettings?.payeeName || LEGAL_DETAILS.legalName;
+  const NOTE = siteSettings?.upiNote || `AI Income Ebook - ${LEGAL_DETAILS.legalName}`;
 
   // Standard UPI URI format: opens UPI apps on mobile and encodes into QR code
   const upiUrl = `upi://pay?pa=${encodeURIComponent(UPI_ID)}&pn=${encodeURIComponent(PAYEE_NAME)}&am=${encodeURIComponent(AMOUNT)}&cu=INR&tn=${encodeURIComponent(NOTE)}`;
@@ -1099,8 +1109,8 @@ function CheckoutPage({ navigate, setUnlocked, siteSettings = getSiteSettings() 
             <span className="eyebrow">ORDER SUMMARY</span>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
               <div>
-                <h3 style={{ fontSize: "1.4rem" }}>{siteSettings?.bookTitle || "USE AI TO MAKE EXTRA INCOME"}</h3>
-                <span style={{ fontSize: "0.9rem", color: "var(--color-secondary)" }}>by {siteSettings?.authorName || "Bhushan"} • Complete Digital Edition</span>
+                <h3 style={{ fontSize: "1.4rem" }}>{siteSettings?.bookTitle || LEGAL_DETAILS.bookTitle}</h3>
+                <span style={{ fontSize: "0.9rem", color: "var(--color-secondary)" }}>by {siteSettings?.authorName || LEGAL_DETAILS.legalName} • Complete Digital Edition</span>
               </div>
               <div style={{ textAlign: "right" }}>
                 <span style={{ fontSize: "1.7rem", fontWeight: 800, color: "var(--color-primary)" }}>₹{AMOUNT}</span>
@@ -1391,13 +1401,14 @@ function ThankYouPage({ navigate, siteSettings = getSiteSettings() }) {
 function LoginPage({ navigate, setUnlocked, unlocked, siteSettings = getSiteSettings() }) {
   const currentPrice = siteSettings?.price || 79;
   const currentUpi = siteSettings?.upiId || "bhushan.shimpi1@ybl";
-  const supportEmail = siteSettings?.supportEmail || "shimpibhushan2503@gmail.com";
+  const supportEmail = siteSettings?.supportEmail || LEGAL_DETAILS.email;
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState(null);
   const [currentUser, setCurrentUser] = useState(() => localStorage.getItem(CURRENT_USER_KEY) || "");
   const [unlinkedEmail, setUnlinkedEmail] = useState("");
 
   const AUTHOR_EMAILS = [
+    LEGAL_DETAILS.email.toLowerCase(),
     "shimpibhushan2503@gmail.com",
     "bhushan.shimpi1@ybl",
     supportEmail.toLowerCase(),
@@ -1681,6 +1692,7 @@ function LoginPage({ navigate, setUnlocked, unlocked, siteSettings = getSiteSett
 // 11. CONTACT PAGE
 function ContactPage({ navigate }) {
   const [submitted, setSubmitted] = useState(false);
+  const [formData, setFormData] = useState({ name: "", email: "", message: "" });
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -1692,24 +1704,55 @@ function ContactPage({ navigate }) {
       <div className="container">
         <div className="contact-layout">
           <div className="animate-fade-up">
-            <span className="eyebrow">GET IN TOUCH</span>
-            <h1>Have a Question?</h1>
-            <p style={{ marginTop: 12, marginBottom: 32 }}>
-              Whether you need help with your order, want to request an invoice, or have a question about the book content, we are here to support you.
+            <span className="eyebrow">CUSTOMER SUPPORT & COMPLIANCE</span>
+            <h1>Contact Us</h1>
+            <p style={{ marginTop: 12, marginBottom: 24, fontSize: "1.05rem", color: "var(--color-secondary)" }}>
+              Have questions regarding the ebook, need assistance restoring your digital access, or want to discuss licensing? We are here to help.
             </p>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: 20, borderTop: "1px solid var(--color-border)", paddingTop: 24 }}>
-              <div>
-                <b style={{ display: "block", color: "var(--color-primary)" }}>Support Email</b>
-                <span style={{ color: "var(--color-secondary)", fontSize: "0.95rem" }}>support@aiincomeguide.com</span>
+            <div className="legal-entity-card" style={{ marginTop: 0, marginBottom: 24 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+                <ShieldCheck size={22} color="var(--color-accent)" />
+                <h3 style={{ margin: 0, fontSize: "1.15rem" }}>Verified Merchant Information</h3>
               </div>
-              <div>
-                <b style={{ display: "block", color: "var(--color-primary)" }}>Response Time</b>
-                <span style={{ color: "var(--color-secondary)", fontSize: "0.95rem" }}>Usually within 12–24 business hours</span>
+              <div style={{ display: "flex", flexDirection: "column", gap: 12, fontSize: "0.95rem" }}>
+                <div>
+                  <span style={{ color: "var(--color-muted)", display: "block", fontSize: "0.8rem", textTransform: "uppercase", letterSpacing: "0.05em" }}>Legal Name</span>
+                  <b style={{ color: "var(--color-primary)", fontSize: "1.05rem" }}>{LEGAL_DETAILS.legalName}</b>
+                </div>
+                <div>
+                  <span style={{ color: "var(--color-muted)", display: "block", fontSize: "0.8rem", textTransform: "uppercase", letterSpacing: "0.05em" }}>Official Support Email</span>
+                  <a href={`mailto:${LEGAL_DETAILS.email}`} style={{ color: "var(--color-accent)", fontWeight: 600, textDecoration: "none" }}>
+                    {LEGAL_DETAILS.email}
+                  </a>
+                </div>
+                <div>
+                  <span style={{ color: "var(--color-muted)", display: "block", fontSize: "0.8rem", textTransform: "uppercase", letterSpacing: "0.05em" }}>Phone & WhatsApp Support</span>
+                  <a href={`tel:${LEGAL_DETAILS.rawPhone}`} style={{ color: "var(--color-primary)", fontWeight: 600, textDecoration: "none" }}>
+                    {LEGAL_DETAILS.phone}
+                  </a>
+                </div>
+                <div>
+                  <span style={{ color: "var(--color-muted)", display: "block", fontSize: "0.8rem", textTransform: "uppercase", letterSpacing: "0.05em" }}>Business Operation</span>
+                  <span style={{ color: "var(--color-secondary)" }}>Independent Digital Publisher & Educational Content Author</span>
+                </div>
               </div>
-              <div>
-                <b style={{ display: "block", color: "var(--color-primary)" }}>Support Hours</b>
-                <span style={{ color: "var(--color-secondary)", fontSize: "0.95rem" }}>Monday to Saturday, 9:00 AM – 7:00 PM IST</span>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 16, borderTop: "1px solid var(--color-border)", paddingTop: 20 }}>
+              <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+                <Clock size={18} color="var(--color-accent)" style={{ marginTop: 2, flexShrink: 0 }} />
+                <div>
+                  <b style={{ display: "block", color: "var(--color-primary)", fontSize: "0.95rem" }}>Support & Operating Hours</b>
+                  <span style={{ color: "var(--color-secondary)", fontSize: "0.9rem" }}>{LEGAL_DETAILS.supportHours}</span>
+                </div>
+              </div>
+              <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+                <Mail size={18} color="var(--color-accent)" style={{ marginTop: 2, flexShrink: 0 }} />
+                <div>
+                  <b style={{ display: "block", color: "var(--color-primary)", fontSize: "0.95rem" }}>Response Timeline</b>
+                  <span style={{ color: "var(--color-secondary)", fontSize: "0.9rem" }}>We respond to all customer emails and queries within 24 to 48 business hours.</span>
+                </div>
               </div>
             </div>
           </div>
@@ -1717,27 +1760,61 @@ function ContactPage({ navigate }) {
           <div className="animate-fade-up delay-1">
             {submitted ? (
               <div style={{ padding: 48, background: "var(--color-bg-soft)", border: "1px solid var(--color-border)", borderRadius: "var(--radius-lg)", textAlign: "center" }}>
-                <Check size={36} color="#059669" style={{ margin: "0 auto 16px" }} />
-                <h3>Message Sent Successfully</h3>
-                <p style={{ marginTop: 8 }}>Thank you for reaching out. We will respond to your email shortly.</p>
+                <Check size={40} color="#059669" style={{ margin: "0 auto 16px" }} />
+                <h3>Thank You for Reaching Out</h3>
+                <p style={{ marginTop: 8, color: "var(--color-secondary)", lineHeight: 1.6 }}>
+                  Your message has been delivered directly to <b>{LEGAL_DETAILS.legalName}</b> at <b>{LEGAL_DETAILS.email}</b>. We will get back to you within 24 business hours.
+                </p>
+                <button
+                  className="btn-secondary"
+                  onClick={() => { setSubmitted(false); setFormData({ name: "", email: "", message: "" }); }}
+                  style={{ marginTop: 20 }}
+                >
+                  Send Another Message
+                </button>
               </div>
             ) : (
               <form className="checkout-form contact-form-card" onSubmit={handleSubmit}>
+                <h3 style={{ margin: "0 0 16px 0", fontSize: "1.25rem" }}>Send a Direct Message</h3>
                 <div className="form-group">
-                  <label>Your Name</label>
-                  <input type="text" className="form-input" placeholder="Your name" required />
+                  <label>Your Full Name *</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="Enter your name"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    required
+                  />
                 </div>
                 <div className="form-group">
-                  <label>Email Address</label>
-                  <input type="email" className="form-input" placeholder="you@example.com" required />
+                  <label>Email Address *</label>
+                  <input
+                    type="email"
+                    className="form-input"
+                    placeholder="you@example.com"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    required
+                  />
                 </div>
                 <div className="form-group">
-                  <label>Message</label>
-                  <textarea className="form-textarea" rows="5" placeholder="How can we help you?" required />
+                  <label>Message / Inquiry *</label>
+                  <textarea
+                    className="form-textarea"
+                    rows={5}
+                    placeholder="Describe your inquiry, order question, or feedback..."
+                    value={formData.message}
+                    onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+                    required
+                  />
                 </div>
-                <button type="submit" className="btn-primary" style={{ width: "100%" }}>
-                  Send Message →
+                <button type="submit" className="btn-primary btn-accent" style={{ width: "100%", justifyContent: "center" }}>
+                  Submit Inquiry →
                 </button>
+                <span style={{ fontSize: "0.8rem", color: "var(--color-muted)", textAlign: "center", display: "block" }}>
+                  Direct support: {LEGAL_DETAILS.email} • {LEGAL_DETAILS.phone}
+                </span>
               </form>
             )}
           </div>
@@ -1747,87 +1824,320 @@ function ContactPage({ navigate }) {
   );
 }
 
-// 11. LEGAL PAGES
+// 12. ABOUT US PAGE
+function AboutPage({ navigate }) {
+  return (
+    <div className="section animate-page">
+      <div className="container-editorial legal-content animate-fade-up">
+        <span className="eyebrow">ABOUT THE AUTHOR & PUBLISHER</span>
+        <h1>About Us</h1>
+        <div className="legal-date">Last Updated: October 2026</div>
+
+        <div className="legal-notice-box">
+          <b>Official Entity Information:</b>
+          <div style={{ marginTop: 6 }}>
+            This website and the publication <b>"AI Income for Everyone"</b> are owned, authored, and operated solely by <b>{LEGAL_DETAILS.legalName}</b>.
+          </div>
+        </div>
+
+        <h2>1. Who We Are</h2>
+        <p>
+          Welcome to <b>AI Income for Everyone</b>. This educational platform was founded and is personally operated by <b>{LEGAL_DETAILS.legalName}</b>, an independent digital creator, author, and technology educator based in India.
+        </p>
+        <p>
+          With artificial intelligence tools expanding rapidly across the world, our mission is to cut through confusing jargon, exaggerated claims, and expensive technical courses to bring clear, honest, and actionable AI literacy to everyday people.
+        </p>
+
+        <h2>2. Our Publication & Mission</h2>
+        <p>
+          <b>"AI Income for Everyone"</b> is a comprehensive, beginner-friendly digital ebook and web guide crafted specifically for students, working professionals, homemakers, and freelancers who want to earn supplementary income using modern, zero-cost AI tools (such as ChatGPT, Claude, and Canva).
+        </p>
+        <p>
+          Every chapter focuses on practical, real-world workflows that require zero coding or prior technical expertise. From creating digital planners and content generation to freelance assistance and local business consulting, each method includes copy-paste prompt templates, clear tool recommendations, and realistic daily time commitments.
+        </p>
+
+        <h2>3. Transparency & Consumer Protection</h2>
+        <p>
+          We believe in complete transparency and consumer trust:
+        </p>
+        <ul>
+          <li><b>Affordable Single-Time Pricing:</b> We offer the full digital edition at a simple one-time payment of ₹{LEGAL_DETAILS.price} with lifetime updates, zero recurring subscriptions, and no hidden upsells.</li>
+          <li><b>Instant Digital Access:</b> Upon successful payment, readers receive immediate access in their web browser and a digital confirmation link to their email address within 0 to 5 minutes.</li>
+          <li><b>100% 30-Day Money-Back Guarantee:</b> We want every reader to feel completely secure. If you go through the guide and feel it did not deliver practical value for your time, you are covered by our 30-day no-hassle refund guarantee.</li>
+        </ul>
+
+        <h2>4. Legal Owner & Contact Information</h2>
+        <div className="legal-entity-card">
+          <div className="legal-meta-grid">
+            <div className="legal-meta-item">
+              <b>Legal Owner / Author</b>
+              <span>{LEGAL_DETAILS.legalName}</span>
+            </div>
+            <div className="legal-meta-item">
+              <b>Support Email</b>
+              <span><a href={`mailto:${LEGAL_DETAILS.email}`} style={{ color: "inherit", textDecoration: "none" }}>{LEGAL_DETAILS.email}</a></span>
+            </div>
+            <div className="legal-meta-item">
+              <b>Phone Contact</b>
+              <span><a href={`tel:${LEGAL_DETAILS.rawPhone}`} style={{ color: "inherit", textDecoration: "none" }}>{LEGAL_DETAILS.phone}</a></span>
+            </div>
+            <div className="legal-meta-item">
+              <b>Operating Hours</b>
+              <span>{LEGAL_DETAILS.supportHours}</span>
+            </div>
+          </div>
+        </div>
+
+        <div style={{ marginTop: 40, display: "flex", gap: 14, flexWrap: "wrap" }}>
+          <button className="btn-primary btn-accent" onClick={() => navigate("checkout")}>
+            Get the Ebook for ₹{LEGAL_DETAILS.price} →
+          </button>
+          <button className="btn-secondary" onClick={() => navigate("chapters")}>
+            Browse Chapter Directory
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// 13. PRIVACY POLICY PAGE
 function PrivacyPage() {
   return (
     <div className="section animate-page">
       <div className="container-editorial legal-content animate-fade-up">
-        <span className="eyebrow">LEGAL DOCUMENT</span>
+        <span className="eyebrow">LEGAL COMPLIANCE</span>
         <h1>Privacy Policy</h1>
-        <div className="legal-date">Last Updated: September 2026</div>
+        <div className="legal-date">Last Updated: October 2026</div>
+
+        <div className="legal-notice-box">
+          This Privacy Policy applies to the website and digital publication <b>AI Income for Everyone</b>, operated and managed by <b>{LEGAL_DETAILS.legalName}</b> ("we", "us", or "our"). We are committed to safeguarding your personal privacy and maintaining strict confidentiality of the information you share with us.
+        </div>
 
         <h2>1. Information We Collect</h2>
         <p>
-          We only collect personal information that you voluntarily provide to us when purchasing the ebook or contacting support, such as your name and email address. We do not store payment card numbers or banking passwords on our servers.
+          We only collect personal information that you voluntarily provide to us when purchasing our digital ebook or contacting customer support:
+        </p>
+        <ul>
+          <li><b>Customer Contact Information:</b> Name and email address entered during checkout or when submitting inquiries via our contact form.</li>
+          <li><b>Transaction Identifiers:</b> Order reference numbers and payment transaction IDs generated by authorized payment gateways (e.g., Cashfree / UPI) for the purpose of verifying order fulfillment.</li>
+        </ul>
+        <p>
+          <b>We DO NOT collect or store sensitive financial information:</b> We do not collect, store, or process debit/credit card numbers, CVVs, net banking passwords, or UPI PINs on our servers. All financial transactions are securely processed through Reserve Bank of India (RBI) authorized payment aggregators with bank-grade 256-bit SSL encryption.
         </p>
 
-        <h2>2. How We Use Your Information</h2>
+        <h2>2. Purpose & Use of Collected Information</h2>
         <p>
-          Your information is used strictly to deliver your digital purchase, send edition updates, and respond to support queries. We do not sell, rent, or trade your personal data to third parties.
+          Any personal data collected is utilized strictly for legitimate operational purposes:
+        </p>
+        <ul>
+          <li>To immediately grant and unlock access to the digital ebook and web reader application.</li>
+          <li>To deliver purchase confirmation receipts, access keys, and future edition updates to your registered email address.</li>
+          <li>To communicate regarding customer support queries, billing questions, or refund requests.</li>
+          <li>To prevent fraudulent transactions and maintain lawful accounting records.</li>
+        </ul>
+        <p>
+          <b>No Data Selling:</b> We strictly never sell, rent, license, or monetize your personal details to third-party advertisers, brokers, or marketing agencies.
         </p>
 
-        <h2>3. Data Security</h2>
+        <h2>3. Cookies and Local Storage</h2>
         <p>
-          We implement standard 256-bit SSL encryption and strict administrative safeguards to protect your personal details during transmission and storage.
+          We use minimal local browser storage (<code>localStorage</code>) strictly necessary for functional purposes—such as remembering your unlocked reading status, bookmarking your reading position across chapters, and caching your display preferences on your local device. We do not use third-party tracking or cross-site tracking cookies.
         </p>
 
-        <h2>4. Contact</h2>
+        <h2>4. Data Security & Storage</h2>
         <p>
-          If you have questions regarding this Privacy Policy, you may contact us at support@aiincomeguide.com.
+          We adopt industry-standard security measures, including HTTPS encryption via SSL/TLS protocols and restricted access controls, to safeguard personal information against unauthorized access, alteration, or disclosure.
         </p>
+
+        <h2>5. Your Data Rights</h2>
+        <p>
+          As a user, you have the right to request access to the information we hold about you or request the removal of your customer record from our mailing list. To exercise any of these rights, please write to us directly at <b>{LEGAL_DETAILS.email}</b>.
+        </p>
+
+        <h2>6. Grievance Officer & Contact Information</h2>
+        <p>
+          In accordance with the Information Technology Act, 2000 and the Consumer Protection (E-Commerce) Rules, 2020, the designated Grievance Officer and Data Controller for this website is:
+        </p>
+
+        <div className="legal-entity-card">
+          <div className="legal-meta-grid">
+            <div className="legal-meta-item">
+              <b>Grievance Officer & Legal Owner</b>
+              <span>{LEGAL_DETAILS.legalName}</span>
+            </div>
+            <div className="legal-meta-item">
+              <b>Designated Email</b>
+              <span><a href={`mailto:${LEGAL_DETAILS.email}`} style={{ color: "inherit", textDecoration: "none" }}>{LEGAL_DETAILS.email}</a></span>
+            </div>
+            <div className="legal-meta-item">
+              <b>Phone Contact</b>
+              <span><a href={`tel:${LEGAL_DETAILS.rawPhone}`} style={{ color: "inherit", textDecoration: "none" }}>{LEGAL_DETAILS.phone}</a></span>
+            </div>
+            <div className="legal-meta-item">
+              <b>Response Commitment</b>
+              <span>Acknowledgment within 24–48 hours; resolution within 15 days</span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
 }
 
+// 14. TERMS & CONDITIONS PAGE
 function TermsPage() {
   return (
     <div className="section animate-page">
       <div className="container-editorial legal-content animate-fade-up">
-        <span className="eyebrow">LEGAL DOCUMENT</span>
+        <span className="eyebrow">LEGAL COMPLIANCE</span>
         <h1>Terms & Conditions</h1>
-        <div className="legal-date">Last Updated: September 2026</div>
+        <div className="legal-date">Last Updated: October 2026</div>
 
-        <h2>1. Digital Product License</h2>
+        <div className="legal-notice-box">
+          Welcome to <b>AI Income for Everyone</b>. These Terms & Conditions constitute a legally binding agreement between you ("User", "Customer", or "Reader") and <b>{LEGAL_DETAILS.legalName}</b> ("Owner", "Publisher", "we", or "us"). By accessing this website or purchasing our digital product, you acknowledge and agree to comply with these terms.
+        </div>
+
+        <h2>1. Description of Product & Service</h2>
         <p>
-          Upon purchasing 'USE AI TO MAKE EXTRA INCOME', you are granted a personal, non-exclusive, non-transferable license to access and read the manuscript for educational purposes.
+          We provide educational digital content titled <b>"AI Income for Everyone"</b>, delivered via an interactive web reader and digital materials. The product teaches practical workflows and strategies for using artificial intelligence tools to generate supplementary income.
         </p>
 
-        <h2>2. Intellectual Property</h2>
+        <h2>2. Pricing & Payment Terms</h2>
         <p>
-          All text, frameworks, prompts, and materials contained in this guide are the copyrighted intellectual property of Bhushan. Unauthorized resale, reproduction, or redistribution is strictly prohibited.
+          All prices displayed on this website are in Indian Rupees (INR - ₹) and are inclusive of all applicable taxes.
+        </p>
+        <ul>
+          <li>The standard one-time purchase price is ₹{LEGAL_DETAILS.price}.</li>
+          <li>Payments are processed securely via authorized Indian payment aggregators (Cashfree / UPI / Cards / Net Banking).</li>
+          <li>There are zero recurring subscriptions, hidden fees, or automatic renewals. Your payment entitles you to lifetime access to the purchased edition and all future updates.</li>
+        </ul>
+
+        <h2>3. Digital License & Usage Rights</h2>
+        <p>
+          Upon successful purchase, <b>{LEGAL_DETAILS.legalName}</b> grants you a personal, single-user, non-exclusive, non-transferable, and revocable license to access, view, and read the ebook for personal educational purposes.
+        </p>
+        <p>
+          <b>Restrictions:</b> You may NOT resell, redistribute, sub-license, copy, upload to public repositories or torrent trackers, translate, or broadcast any part of the manuscript, text, prompt frameworks, or proprietary materials without express prior written permission from <b>{LEGAL_DETAILS.legalName}</b>.
         </p>
 
-        <h2>3. Disclaimer</h2>
+        <h2>4. Intellectual Property Rights</h2>
         <p>
-          The methods and strategies described in this book are educational. Results depend on individual effort, time, and market factors. No specific income guarantee is implied or promised.
+          All literary content, text, prompt templates, illustrations, cover artwork, website design, and underlying code are the exclusive intellectual property and copyright of <b>{LEGAL_DETAILS.legalName}</b>. All rights are reserved under Indian and international copyright laws.
         </p>
+
+        <h2>5. Educational Disclaimer & No Earnings Guarantee</h2>
+        <p>
+          The methods, prompt strategies, and business models described in "AI Income for Everyone" are intended strictly for educational and informational purposes. Earning results depend entirely on the individual user's background, work ethic, market conditions, and time invested. <b>{LEGAL_DETAILS.legalName}</b> makes no explicit or implicit earnings guarantees or warranties that following the guide will result in specific financial income.
+        </p>
+
+        <h2>6. Limitation of Liability</h2>
+        <p>
+          To the maximum extent permitted by applicable Indian law, <b>{LEGAL_DETAILS.legalName}</b> shall not be liable for any indirect, incidental, punitive, or consequential damages arising from the use or inability to use this website or digital product. In any event, our aggregate liability shall not exceed the amount actually paid by you for the product (₹{LEGAL_DETAILS.price}).
+        </p>
+
+        <h2>7. Governing Law and Jurisdiction</h2>
+        <p>
+          These Terms & Conditions shall be governed by, construed, and enforced in accordance with the laws of the Republic of India. Any legal disputes or claims arising out of or related to these terms shall be subject to the exclusive jurisdiction of the competent courts in Maharashtra, India.
+        </p>
+
+        <h2>8. Contact Information</h2>
+        <div className="legal-entity-card">
+          <div className="legal-meta-grid">
+            <div className="legal-meta-item">
+              <b>Publisher & Legal Owner</b>
+              <span>{LEGAL_DETAILS.legalName}</span>
+            </div>
+            <div className="legal-meta-item">
+              <b>Official Email</b>
+              <span><a href={`mailto:${LEGAL_DETAILS.email}`} style={{ color: "inherit", textDecoration: "none" }}>{LEGAL_DETAILS.email}</a></span>
+            </div>
+            <div className="legal-meta-item">
+              <b>Support Phone</b>
+              <span><a href={`tel:${LEGAL_DETAILS.rawPhone}`} style={{ color: "inherit", textDecoration: "none" }}>{LEGAL_DETAILS.phone}</a></span>
+            </div>
+            <div className="legal-meta-item">
+              <b>Support Hours</b>
+              <span>{LEGAL_DETAILS.supportHours}</span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
 }
 
+// 15. REFUND & CANCELLATION POLICY PAGE
 function RefundPage({ navigate }) {
   return (
     <div className="section animate-page">
       <div className="container-editorial legal-content animate-fade-up">
-        <span className="eyebrow">OUR PROMISE</span>
-        <h1>30-Day Refund Policy</h1>
-        <div className="legal-date">Last Updated: September 2026</div>
+        <span className="eyebrow">CUSTOMER PROTECTION & GUARANTEE</span>
+        <h1>Refund & Cancellation Policy</h1>
+        <div className="legal-date">Last Updated: October 2026</div>
 
-        <h2>100% Money-Back Guarantee</h2>
+        <div className="legal-notice-box">
+          At <b>AI Income for Everyone</b>, published and operated by <b>{LEGAL_DETAILS.legalName}</b>, customer satisfaction is our highest priority. We want you to invest in your education with 100% confidence, backed by our clear and fair 30-day refund guarantee.
+        </div>
+
+        <h2>1. 100% 30-Day Money-Back Guarantee</h2>
         <p>
-          We want you to feel completely confident in your purchase. If you read the book and feel that it did not provide practical value for your time and money, you are entitled to a full refund within 30 days of purchase.
+          We provide a full <b>30-day money-back guarantee</b> on your purchase of "AI Income for Everyone". If you purchase the guide, go through the chapters, and honestly feel that the material did not deliver practical, actionable value for your time and money, you are entitled to a 100% full refund within 30 calendar days from the date of purchase.
         </p>
 
-        <h2>How to Request a Refund</h2>
+        <h2>2. Cancellation Policy</h2>
         <p>
-          Simply email <b>support@aiincomeguide.com</b> with your purchase email address and order confirmation. We will process your refund promptly back to your original payment method.
+          Because "AI Income for Everyone" is a digital educational product that is unlocked immediately upon successful payment verification, standard physical order cancellations prior to dispatch do not apply.
         </p>
+        <p>
+          However, any post-payment cancellation request is fully accommodated under our <b>30-Day Refund Policy</b> without questions asked or cancellation penalties.
+        </p>
+
+        <h2>3. How to Request a Refund or Cancellation</h2>
+        <p>
+          Requesting a refund is simple, fast, and transparent:
+        </p>
+        <ol>
+          <li>Send an email to <b>{LEGAL_DETAILS.email}</b> or contact us via WhatsApp/call at <b>{LEGAL_DETAILS.phone}</b>.</li>
+          <li>Include the email address you entered during checkout and your payment transaction ID / order reference.</li>
+          <li>Let us know you would like a refund. You do not need to provide complicated justifications or documentation.</li>
+        </ol>
+
+        <h2>4. Refund Processing & Settlement Turnaround</h2>
+        <p>
+          Once we receive your refund request:
+        </p>
+        <ul>
+          <li><b>Review & Confirmation:</b> Your request will be acknowledged and approved within <b>24 to 48 business hours</b>.</li>
+          <li><b>Settlement Timeline:</b> The refund will be credited back directly to your <b>original payment source</b> (source bank account, UPI ID, or debit/credit card) within <b>5 to 7 business days</b>, in accordance with standard Indian banking and payment gateway clearing cycles.</li>
+          <li><b>Deductions:</b> We do not charge any administrative or restocking fees. You receive 100% of the purchase amount (₹{LEGAL_DETAILS.price}) back.</li>
+        </ul>
+
+        <h2>5. Merchant & Contact Details</h2>
+        <div className="legal-entity-card">
+          <div className="legal-meta-grid">
+            <div className="legal-meta-item">
+              <b>Legal Merchant Name</b>
+              <span>{LEGAL_DETAILS.legalName}</span>
+            </div>
+            <div className="legal-meta-item">
+              <b>Refund Support Email</b>
+              <span><a href={`mailto:${LEGAL_DETAILS.email}`} style={{ color: "inherit", textDecoration: "none" }}>{LEGAL_DETAILS.email}</a></span>
+            </div>
+            <div className="legal-meta-item">
+              <b>Support Phone / WhatsApp</b>
+              <span><a href={`tel:${LEGAL_DETAILS.rawPhone}`} style={{ color: "inherit", textDecoration: "none" }}>{LEGAL_DETAILS.phone}</a></span>
+            </div>
+            <div className="legal-meta-item">
+              <b>Processing SLA</b>
+              <span>5 to 7 business days to original payment method</span>
+            </div>
+          </div>
+        </div>
 
         <div style={{ marginTop: 40, padding: 24, background: "var(--color-bg-soft)", border: "1px solid var(--color-border)", borderRadius: "var(--radius-md)" }}>
           <p style={{ margin: 0 }}>
-            Have a question before purchasing? Feel free to check our <button className="btn-link" onClick={() => navigate("faq")}>FAQ</button> or <button className="btn-link" onClick={() => navigate("contact")}>contact us</button>.
+            Have a question before or after purchasing? Check out our <button className="btn-link" onClick={() => navigate("faq")}>FAQ</button> or <button className="btn-link" onClick={() => navigate("contact")}>contact our support team</button>.
           </p>
         </div>
       </div>
@@ -1835,12 +2145,108 @@ function RefundPage({ navigate }) {
   );
 }
 
+// 16. SHIPPING & DELIVERY POLICY PAGE
+function ShippingPage({ navigate }) {
+  return (
+    <div className="section animate-page">
+      <div className="container-editorial legal-content animate-fade-up">
+        <span className="eyebrow">DIGITAL FULFILLMENT & ACCESS</span>
+        <h1>Shipping & Delivery Policy</h1>
+        <div className="legal-date">Last Updated: October 2026</div>
+
+        <div className="legal-notice-box">
+          This Shipping & Delivery Policy outlines the electronic fulfillment process for digital purchases on <b>AI Income for Everyone</b>, authored, published, and operated by <b>{LEGAL_DETAILS.legalName}</b>.
+        </div>
+
+        <h2>1. 100% Digital Delivery (No Physical Shipping)</h2>
+        <p>
+          All products offered on this website ("AI Income for Everyone") are <b>strictly digital electronic goods</b>.
+        </p>
+        <p>
+          No physical package, paper book, CD, DVD, or hardware is shipped or dispatched through postal, courier, or logistics services. Consequently, there are no postal transit delays, delivery tracking numbers, or physical damages to worry about.
+        </p>
+
+        <h2>2. Delivery Timeline & Electronic Fulfillment</h2>
+        <ul>
+          <li><b>Instant Browser Access (Immediate):</b> As soon as your payment of ₹{LEGAL_DETAILS.price} is verified via our payment gateway, access to the entire 15-section digital ebook is unlocked in your browser immediately.</li>
+          <li><b>Email Confirmation (0–5 Minutes):</b> A confirmation receipt and digital access link are electronically dispatched to the email address provided during checkout within <b>0 to 5 minutes</b> of transaction completion.</li>
+          <li><b>Lifetime Re-Access:</b> Readers can return to the website at any time on any device (mobile, tablet, desktop) and access the complete content by entering their registered purchase email on the <b>Reader Login</b> page.</li>
+        </ul>
+
+        <h2>3. Shipping Charges</h2>
+        <p>
+          Because our products are delivered entirely via electronic transmission over the internet, <b>shipping is 100% FREE (₹0.00)</b>. There are no delivery charges, handling fees, or postal tariffs.
+        </p>
+
+        <h2>4. Delivery Issues & Access Restoration</h2>
+        <p>
+          In rare situations where a customer experiences network dropouts, enters a mistyped email, or does not receive the automated confirmation email within 10 minutes:
+        </p>
+        <ul>
+          <li>Visit the <b><button className="btn-link" onClick={() => navigate("login")}>Reader Login</button></b> page and submit the email address used during payment to instantly verify and unlock your access.</li>
+          <li>Contact our support team directly with your payment reference or transaction ID. We will manually verify your payment and ensure your digital access is restored within <b>2 to 4 business hours</b>.</li>
+        </ul>
+
+        <h2>5. Publisher & Delivery Inquiries</h2>
+        <div className="legal-entity-card">
+          <div className="legal-meta-grid">
+            <div className="legal-meta-item">
+              <b>Publisher & Legal Owner</b>
+              <span>{LEGAL_DETAILS.legalName}</span>
+            </div>
+            <div className="legal-meta-item">
+              <b>Support Email</b>
+              <span><a href={`mailto:${LEGAL_DETAILS.email}`} style={{ color: "inherit", textDecoration: "none" }}>{LEGAL_DETAILS.email}</a></span>
+            </div>
+            <div className="legal-meta-item">
+              <b>Support Phone / WhatsApp</b>
+              <span><a href={`tel:${LEGAL_DETAILS.rawPhone}`} style={{ color: "inherit", textDecoration: "none" }}>{LEGAL_DETAILS.phone}</a></span>
+            </div>
+            <div className="legal-meta-item">
+              <b>Fulfillment Window</b>
+              <span>Instant / 0 to 5 minutes (Digital electronic delivery)</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ROUTE NORMALIZATION HELPER FOR VERCEL PATHS & HASHES
+function normalizeRoute(pathOrHash) {
+  if (!pathOrHash) return "home";
+  const clean = String(pathOrHash).replace(/^[#/]+/, "").split(/[?#]/)[0].trim().toLowerCase();
+  if (!clean || clean === "" || clean === "index.html") return "home";
+
+  if (clean === "privacy" || clean === "privacy-policy" || clean === "privacypolicy") return "privacy";
+  if (clean === "terms" || clean === "terms-and-conditions" || clean === "terms-conditions" || clean === "terms-of-service" || clean === "tos") return "terms";
+  if (clean === "refund" || clean === "refund-policy" || clean === "refund-and-cancellation" || clean === "refunds" || clean === "cancellation-policy" || clean === "cancellation" || clean === "refund-cancellation") return "refund";
+  if (clean === "shipping" || clean === "shipping-policy" || clean === "shipping-and-delivery" || clean === "delivery-policy" || clean === "delivery" || clean === "shipping-delivery") return "shipping";
+  if (clean === "about" || clean === "about-us" || clean === "aboutus") return "about";
+  if (clean === "contact" || clean === "contact-us" || clean === "contactus" || clean === "support") return "contact";
+  if (clean === "faq" || clean === "faqs") return "faq";
+  if (clean === "reviews" || clean === "testimonials") return "reviews";
+  if (clean === "chapters" || clean === "table-of-contents" || clean === "directory") return "chapters";
+  if (clean === "whats-inside" || clean === "inside") return "whats-inside";
+  if (clean === "pricing" || clean === "price") return "pricing";
+  if (clean === "checkout" || clean === "buy" || clean === "order" || clean === "payment") return "checkout";
+  if (clean === "login" || clean === "my-access" || clean === "reader-login") return "login";
+  if (clean === "thank-you" || clean === "success") return "thank-you";
+  if (clean === "admin" || clean === "dashboard") return "admin";
+  if (clean.startsWith("chapter-")) return clean;
+
+  return clean;
+}
+
 // MAIN APPLICATION ROUTER & STATE
 export default function App() {
   const getInitialRoute = () => {
     try {
       const hash = window.location.hash.replace("#", "").trim();
-      if (hash) return hash;
+      if (hash) return normalizeRoute(hash);
+      const path = window.location.pathname.replace(/^\//, "").trim();
+      if (path) return normalizeRoute(path);
     } catch {}
     return "home";
   };
@@ -1874,23 +2280,38 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    const handleHashChange = () => {
+    const handleLocationChange = () => {
       try {
         const hash = window.location.hash.replace("#", "").trim();
         if (hash) {
-          setRoute(hash);
+          setRoute(normalizeRoute(hash));
           window.scrollTo({ top: 0, behavior: "smooth" });
+          return;
         }
+        const path = window.location.pathname.replace(/^\//, "").trim();
+        if (path) {
+          setRoute(normalizeRoute(path));
+          window.scrollTo({ top: 0, behavior: "smooth" });
+          return;
+        }
+        setRoute("home");
       } catch {}
     };
-    window.addEventListener("hashchange", handleHashChange);
-    return () => window.removeEventListener("hashchange", handleHashChange);
+    window.addEventListener("hashchange", handleLocationChange);
+    window.addEventListener("popstate", handleLocationChange);
+    return () => {
+      window.removeEventListener("hashchange", handleLocationChange);
+      window.removeEventListener("popstate", handleLocationChange);
+    };
   }, []);
 
   const navigate = (targetRoute) => {
-    setRoute(targetRoute);
+    const normalized = normalizeRoute(targetRoute);
+    setRoute(normalized);
     try {
-      window.location.hash = targetRoute;
+      const urlPath = normalized === "home" ? "/" : `/${normalized}`;
+      window.history.pushState(null, "", urlPath);
+      window.location.hash = normalized;
     } catch {}
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -1929,6 +2350,8 @@ export default function App() {
         return <ThankYouPage navigate={navigate} siteSettings={siteSettings} />;
       case "contact":
         return <ContactPage navigate={navigate} />;
+      case "about":
+        return <AboutPage navigate={navigate} />;
       case "login":
         return <LoginPage navigate={navigate} setUnlocked={setUnlocked} unlocked={unlocked} siteSettings={siteSettings} />;
       case "admin":
@@ -1940,6 +2363,8 @@ export default function App() {
         return <TermsPage />;
       case "refund":
         return <RefundPage navigate={navigate} />;
+      case "shipping":
+        return <ShippingPage navigate={navigate} />;
       default:
         return <HomePage navigate={navigate} siteSettings={siteSettings} />;
     }

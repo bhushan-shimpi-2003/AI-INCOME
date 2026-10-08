@@ -3,17 +3,36 @@ import { ebookSections } from "./ebookContent";
 export const SETTINGS_STORAGE_KEY = "ai_income_settings";
 export const CHAPTERS_STORAGE_KEY = "ai_income_custom_chapters";
 
+export const LEGAL_DETAILS = {
+  legalName: "BHUSHAN KISHOR SHIMPI",
+  displayName: "BHUSHAN KISHOR SHIMPI",
+  email: "bhushanshimpi2003@gmail.com",
+  phone: "+91 7020710581",
+  rawPhone: "7020710581",
+  bookTitle: "AI Income for Everyone",
+  productType: "Digital Educational Ebook & Interactive Web Reader",
+  price: 79,
+  currency: "INR (₹)",
+  deliveryMethod: "Instant Digital Access (Online Web Reader & Email Confirmation)",
+  deliveryTime: "Instant / Within 0 to 5 minutes of successful payment",
+  refundPeriod: "30 Days from date of purchase",
+  refundTurnaround: "5 to 7 business days back to original payment source",
+  supportHours: "Monday to Saturday, 9:00 AM – 7:00 PM IST",
+  supportTurnaround: "Within 24 to 48 business hours"
+};
+
 export const DEFAULT_SETTINGS = {
   bookTitle: "AI Income for Everyone",
   bookSubtitle: "The Practical Blueprint to Earning Extra Income with Free AI Tools",
-  authorName: "Bhushan Shimpi",
+  authorName: "BHUSHAN KISHOR SHIMPI",
   tagline: "A practical, beginner-friendly guide to earning extra income with AI tools. Designed for students, professionals, and homemakers.",
   upiId: "bhushan.shimpi1@ybl",
-  payeeName: "Bhushan Shimpi",
+  payeeName: "BHUSHAN KISHOR SHIMPI",
   price: 79,
   originalPrice: 499,
-  upiNote: "AI Income Ebook - Bhushan Shimpi",
-  supportEmail: "support@aiincomeguide.com"
+  upiNote: "AI Income Ebook - BHUSHAN KISHOR SHIMPI",
+  supportEmail: "bhushanshimpi2003@gmail.com",
+  supportPhone: "7020710581"
 };
 
 export const DEFAULT_CHAPTER_OVERVIEWS = [
@@ -40,7 +59,25 @@ export function getSiteSettings() {
     const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      return { ...DEFAULT_SETTINGS, ...parsed };
+      // Ensure compliance fields are never overwritten by stale cached values
+      const merged = { ...DEFAULT_SETTINGS, ...parsed };
+      if (
+        !merged.authorName ||
+        merged.authorName === "Bhushan" ||
+        merged.authorName === "Bhushan Shimpi"
+      ) {
+        merged.authorName = DEFAULT_SETTINGS.authorName;
+      }
+      if (
+        !merged.supportEmail ||
+        merged.supportEmail === "support@aiincomeguide.com" ||
+        merged.supportEmail === "shimpibhushan2503@gmail.com"
+      ) {
+        merged.supportEmail = DEFAULT_SETTINGS.supportEmail;
+      }
+      merged.supportPhone = DEFAULT_SETTINGS.supportPhone;
+      merged.payeeName = DEFAULT_SETTINGS.payeeName;
+      return merged;
     }
   } catch (e) {}
   return DEFAULT_SETTINGS;
