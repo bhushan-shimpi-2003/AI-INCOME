@@ -25,7 +25,6 @@ import {
   BookOpen,
   FileText,
   PlusCircle,
-  Settings,
   QrCode,
   Save,
   RotateCcw,
@@ -33,7 +32,6 @@ import {
   Menu,
   X,
   ChevronRight,
-  Upload,
   IndianRupee,
   Sparkles
 } from "lucide-react";
@@ -141,7 +139,7 @@ export default function AdminPage({ navigate }) {
   const [pinError, setPinError] = useState("");
 
   // Navigation State
-  const [activeTab, setActiveTab] = useState("dashboard"); // "dashboard" | "chapters" | "details" | "pricing" | "readers" | "manual_sale" | "backup"
+  const [activeTab, setActiveTab] = useState("dashboard"); // "dashboard" | "daily_sales" | "payments" | "chapters" | "pricing" | "details" | "readers" | "manual_sale"
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Settings State
@@ -357,59 +355,6 @@ export default function AdminPage({ navigate }) {
     }
   };
 
-  // Export System Backup to JSON
-  const handleExportSystemBackup = () => {
-    const backupData = {
-      version: "2.0",
-      exportDate: new Date().toISOString(),
-      settings: getSiteSettings(),
-      customChapters: JSON.parse(localStorage.getItem("ai_income_custom_chapters") || "{}"),
-      orders: orders,
-      readerEmails: readerEmails
-    };
-    const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `ai_income_backup_${new Date().toISOString().slice(0, 10)}.json`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  // Import System Backup
-  const handleImportSystemBackup = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const data = JSON.parse(event.target.result);
-        if (data.settings) {
-          saveSiteSettings(data.settings);
-          setSettings(data.settings);
-        }
-        if (data.customChapters) {
-          localStorage.setItem("ai_income_custom_chapters", JSON.stringify(data.customChapters));
-          setChapters(getMergedChapters());
-        }
-        if (data.orders) {
-          localStorage.setItem(ORDERS_STORAGE_KEY, JSON.stringify(data.orders));
-          setOrders(data.orders);
-        }
-        if (data.readerEmails) {
-          localStorage.setItem(EMAILS_STORAGE_KEY, JSON.stringify(data.readerEmails));
-          setReaderEmails(data.readerEmails);
-        }
-        alert("✓ System backup restored successfully!");
-      } catch (err) {
-        alert("Error importing backup file: Invalid JSON format.");
-      }
-    };
-    reader.readAsText(file);
-  };
-
   // Analytics Helpers
   const activeOrders = useMemo(() => {
     if (filterMode === "live") {
@@ -621,8 +566,7 @@ export default function AdminPage({ navigate }) {
     { id: "pricing", label: "Pricing & UPI", icon: IndianRupee },
     { id: "details", label: "Ebook Details", icon: FileText },
     { id: "readers", label: "Readers", icon: Users, badge: `${readerEmails.length}` },
-    { id: "manual_sale", label: "Record Sale", icon: PlusCircle },
-    { id: "backup", label: "Backup & Restore", icon: Settings }
+    { id: "manual_sale", label: "Record Sale", icon: PlusCircle }
   ];
 
   return (
@@ -1836,56 +1780,6 @@ export default function AdminPage({ navigate }) {
                     </button>
                   </div>
                 </form>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 7: BACKUP & RESTORE */}
-          {activeTab === "backup" && (
-            <div className="animate-fade">
-              <div className="admin-pane-header">
-                <div>
-                  <h1 className="admin-pane-title">System Backup & Data Operations</h1>
-                  <p className="admin-pane-desc">
-                    Export your custom chapter edits, site settings, and orders into an offline JSON backup file, or restore from an earlier backup.
-                  </p>
-                </div>
-              </div>
-
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 20, marginTop: 24 }}>
-                <div className="admin-card">
-                  <div className="admin-card-header">
-                    <h2 className="admin-card-title">Export Full System Backup</h2>
-                  </div>
-                  <div style={{ padding: "24px", display: "flex", flexDirection: "column", gap: 16 }}>
-                    <p style={{ fontSize: "0.88rem", color: "var(--color-secondary)", margin: 0 }}>
-                      Downloads all 15 customized chapters, current pricing settings, active readers, and transaction logs in one portable <code>.json</code> file.
-                    </p>
-                    <button className="btn-primary" onClick={handleExportSystemBackup}>
-                      <Download size={16} /> Download Backup (.json)
-                    </button>
-                  </div>
-                </div>
-
-                <div className="admin-card">
-                  <div className="admin-card-header">
-                    <h2 className="admin-card-title">Restore from Backup</h2>
-                  </div>
-                  <div style={{ padding: "24px", display: "flex", flexDirection: "column", gap: 16 }}>
-                    <p style={{ fontSize: "0.88rem", color: "var(--color-secondary)", margin: 0 }}>
-                      Select a previously downloaded <code>.json</code> backup to restore all chapters, pricing, and orders.
-                    </p>
-                    <label className="btn-secondary" style={{ cursor: "pointer", justifyContent: "center" }}>
-                      <Upload size={16} /> Choose Backup File (.json)
-                      <input
-                        type="file"
-                        accept=".json"
-                        style={{ display: "none" }}
-                        onChange={handleImportSystemBackup}
-                      />
-                    </label>
-                  </div>
-                </div>
               </div>
             </div>
           )}
