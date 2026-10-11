@@ -244,25 +244,35 @@ export async function apiFetch(endpoint, options = {}) {
     "Content-Type": "application/json"
   };
 
-  const response = await fetch(url, {
-    ...options,
-    headers: {
-      ...defaultHeaders,
-      ...(options.headers || {})
-    }
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 3500);
 
-  if (!response.ok) {
-    let errorData = null;
-    try {
-      errorData = await response.json();
-    } catch {
-      errorData = { error: response.statusText };
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: options.signal || controller.signal,
+      headers: {
+        ...defaultHeaders,
+        ...(options.headers || {})
+      }
+    });
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      let errorData = null;
+      try {
+        errorData = await response.json();
+      } catch {
+        errorData = { error: response.statusText };
+      }
+      throw new Error(errorData?.error || `Request failed with status ${response.status}`);
     }
-    throw new Error(errorData?.error || `Request failed with status ${response.status}`);
+
+    return response.json();
+  } catch (err) {
+    clearTimeout(timeoutId);
+    throw err;
   }
-
-  return response.json();
 }
 
 // 1. Settings APIs

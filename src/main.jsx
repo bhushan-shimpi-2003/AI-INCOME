@@ -1081,7 +1081,7 @@ function CheckoutPage({ navigate, setUnlocked, siteSettings = getSiteSettings() 
   };
 
   const handleCompletePayment = async (e) => {
-    e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
     if (!name.trim()) {
       setErrorMessage("Please enter your full name.");
       return;
@@ -1098,83 +1098,52 @@ function CheckoutPage({ navigate, setUnlocked, siteSettings = getSiteSettings() 
     const cleanName = name.trim();
     const autoRef = "UPI-AUTO-" + Date.now().toString(36).toUpperCase();
 
-    try {
-      // Submit order to PostgreSQL backend (automatically completed & verified)
-      const res = await createOrderApi({
-        name: cleanName,
-        email: cleanEmail,
-        amount: Number(AMOUNT) || 79,
-        paymentMethod: `UPI (${UPI_ID})`,
-        paymentReference: autoRef,
-        orderType: "live"
-      });
+    // 1. Immediately unlock customer locally so access is guaranteed with zero delay
+    const orderRecord = {
+      id: "ORD-UPI-" + Date.now().toString(36).toUpperCase(),
+      name: cleanName,
+      email: cleanEmail,
+      amount: Number(AMOUNT) || 79,
+      currency: "INR",
+      paymentMethod: `UPI (${UPI_ID})`,
+      paymentReference: autoRef,
+      date: new Date().toISOString(),
+      status: "Completed",
+      type: "live",
+      orderType: "live"
+    };
 
-      const orderRecord = {
-        id: res?.order?.id || ("ORD-UPI-" + Date.now().toString(36).toUpperCase()),
-        name: cleanName,
-        email: cleanEmail,
-        amount: Number(AMOUNT) || 79,
-        currency: "INR",
-        paymentMethod: `UPI (${UPI_ID})`,
-        paymentReference: res?.order?.paymentReference || autoRef,
-        date: new Date().toISOString(),
-        status: "Completed",
-        type: "live",
-        orderType: "live"
-      };
+    localStorage.setItem("ai_income_customer", JSON.stringify(orderRecord));
+    localStorage.removeItem("ai_income_pending_order");
+    localStorage.setItem(CURRENT_USER_KEY, cleanEmail);
+    localStorage.setItem(STORAGE_KEY, "true");
+    sessionStorage.removeItem("ai_income_payment_initiated");
 
-      // Automatically unlock reader immediately!
-      localStorage.setItem("ai_income_customer", JSON.stringify(orderRecord));
-      localStorage.removeItem("ai_income_pending_order");
-      localStorage.setItem(CURRENT_USER_KEY, cleanEmail);
-      localStorage.setItem(STORAGE_KEY, "true");
-      sessionStorage.removeItem("ai_income_payment_initiated");
-
-      const currentList = (() => {
-        try { return JSON.parse(localStorage.getItem(EMAILS_STORAGE_KEY)) || []; } catch { return []; }
-      })();
-      if (!currentList.includes(cleanEmail)) {
-        currentList.push(cleanEmail);
-        localStorage.setItem(EMAILS_STORAGE_KEY, JSON.stringify(currentList));
-      }
-
-      setUnlocked(true);
-      navigate("thank-you");
-    } catch (err) {
-      // Fallback: still unlock immediately so customer gets instant access
-      const fallbackRecord = {
-        id: "ORD-UPI-" + Date.now().toString(36).toUpperCase(),
-        name: cleanName,
-        email: cleanEmail,
-        amount: Number(AMOUNT) || 79,
-        currency: "INR",
-        paymentMethod: `UPI (${UPI_ID})`,
-        paymentReference: autoRef,
-        date: new Date().toISOString(),
-        status: "Completed",
-        type: "live",
-        orderType: "live"
-      };
-
-      localStorage.setItem("ai_income_customer", JSON.stringify(fallbackRecord));
-      localStorage.removeItem("ai_income_pending_order");
-      localStorage.setItem(CURRENT_USER_KEY, cleanEmail);
-      localStorage.setItem(STORAGE_KEY, "true");
-      sessionStorage.removeItem("ai_income_payment_initiated");
-
-      const currentList = (() => {
-        try { return JSON.parse(localStorage.getItem(EMAILS_STORAGE_KEY)) || []; } catch { return []; }
-      })();
-      if (!currentList.includes(cleanEmail)) {
-        currentList.push(cleanEmail);
-        localStorage.setItem(EMAILS_STORAGE_KEY, JSON.stringify(currentList));
-      }
-
-      setUnlocked(true);
-      navigate("thank-you");
-    } finally {
-      setIsSubmitting(false);
+    const currentList = (() => {
+      try { return JSON.parse(localStorage.getItem(EMAILS_STORAGE_KEY)) || []; } catch { return []; }
+    })();
+    if (!currentList.includes(cleanEmail)) {
+      currentList.push(cleanEmail);
+      localStorage.setItem(EMAILS_STORAGE_KEY, JSON.stringify(currentList));
     }
+
+    if (setUnlocked) setUnlocked(true);
+
+    // 2. Asynchronously sync order to PostgreSQL database
+    try {
+      createOrderApi({
+        name: cleanName,
+        email: cleanEmail,
+        amount: Number(AMOUNT) || 79,
+        paymentMethod: `UPI (${UPI_ID})`,
+        paymentReference: autoRef,
+        orderType: "live"
+      }).catch((err) => console.warn("Background order sync notice:", err));
+    } catch {}
+
+    // 3. Immediately transition to thank-you page!
+    setIsSubmitting(false);
+    navigate("thank-you");
   };
 
   return (
@@ -1294,14 +1263,34 @@ function CheckoutPage({ navigate, setUnlocked, siteSettings = getSiteSettings() 
 
               {paymentOption === "intent" ? (
                 <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                  <button
-                    type="button"
-                    onClick={handleInitiatePayment}
-                    className="upi-direct-btn"
-                    style={{ border: "none", cursor: "pointer", width: "100%", justifyContent: "center" }}
-                  >
-                    <Smartphone size={18} /> Tap to Pay ₹{AMOUNT} via UPI App
-                  </button>
+                  {!paymentInitiated ? (
+                    <button
+                      type="button"
+                      onClick={handleInitiatePayment}
+                      className="btn-primary btn-accent"
+                      style={{
+                        border: "none",
+                        cursor: "pointer",
+                        width: "100%",
+                        padding: 16,
+                        fontSize: "1.08rem",
+                        fontWeight: 700,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: 8
+                      }}
+                    >
+                      <Smartphone size={20} /> Tap to Pay ₹{AMOUNT} via UPI App →
+                    </button>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                      <div style={{ padding: "10px 14px", background: "#EFF6FF", border: "1px solid #BFDBFE", borderRadius: "var(--radius-md)", color: "#1E40AF", fontSize: "0.85rem", textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                        <Check size={16} color="#2563EB" /> UPI App Opened. Need to reopen? <button type="button" onClick={handleInitiatePayment} className="btn-link" style={{ fontWeight: 700, color: "#1D4ED8", textDecoration: "underline" }}>Tap here</button>
+                      </div>
+                    </div>
+                  )}
+
                   <p style={{ fontSize: "0.82rem", color: "var(--color-muted)", textAlign: "center", margin: 0 }}>
                     Automatically opens Google Pay, PhonePe, or Paytm with ₹{AMOUNT} prefilled.
                   </p>
@@ -1354,35 +1343,35 @@ function CheckoutPage({ navigate, setUnlocked, siteSettings = getSiteSettings() 
                     <span className="upi-app-badge">CRED</span>
                   </div>
 
-                  {/* Mobile Direct Pay Button */}
+                  {/* Direct working unlock button under QR Code */}
+                  <button
+                    type="button"
+                    onClick={handleCompletePayment}
+                    disabled={isSubmitting}
+                    className="btn-primary btn-accent"
+                    style={{
+                      width: "100%",
+                      padding: 16,
+                      fontSize: "1.08rem",
+                      fontWeight: 700,
+                      marginTop: 12,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 8,
+                      cursor: "pointer"
+                    }}
+                  >
+                    <Check size={20} /> {isSubmitting ? "Unlocking Ebook..." : `I've Paid ₹${AMOUNT} — Unlock Ebook Now →`}
+                  </button>
+
                   <button
                     type="button"
                     onClick={handleInitiatePayment}
                     className="upi-direct-btn"
                     style={{ border: "none", cursor: "pointer", width: "100%", justifyContent: "center", marginTop: 8 }}
                   >
-                    <Smartphone size={18} /> Open UPI App & Pay ₹{AMOUNT}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!name.trim()) {
-                        setErrorMessage("Please enter your full name above first.");
-                        return;
-                      }
-                      if (!email.trim() || !email.includes("@")) {
-                        setErrorMessage("Please enter a valid email address above first.");
-                        return;
-                      }
-                      setErrorMessage("");
-                      setPaymentInitiated(true);
-                      sessionStorage.setItem("ai_income_payment_initiated", "true");
-                    }}
-                    className="btn-secondary"
-                    style={{ width: "100%", justifyContent: "center", marginTop: 8, fontSize: "0.88rem" }}
-                  >
-                    <Check size={15} /> I've Scanned QR Code & Sent ₹{AMOUNT} →
+                    <Smartphone size={18} /> Or Open UPI App on This Device
                   </button>
                 </div>
               )}
@@ -1406,63 +1395,55 @@ function CheckoutPage({ navigate, setUnlocked, siteSettings = getSiteSettings() 
               )}
             </div>
 
-            {/* ONLY SHOW VERIFICATION / UNLOCK BUTTON AFTER PAYMENT INITIATION / REDIRECT */}
-            {paymentInitiated ? (
-              <div className="upi-pay-card animate-fade-up" style={{ background: "#F0FDF4", border: "1.5px solid #86EFAC" }}>
-                <div className="checkout-step" style={{ color: "#166534" }}>
-                  <span className="step-num" style={{ background: "#166534", color: "#FFFFFF" }}>✓</span>
-                  <span>Automatic Payment Verification</span>
-                </div>
+            {/* ONLY SHOW VERIFICATION CARD IN UPI APP TAB AFTER PAYMENT INITIATION / REDIRECT */}
+            {paymentOption === "intent" && (
+              paymentInitiated ? (
+                <div className="upi-pay-card animate-fade-up" style={{ background: "#F0FDF4", border: "1.5px solid #86EFAC" }}>
+                  <div className="checkout-step" style={{ color: "#166534" }}>
+                    <span className="step-num" style={{ background: "#166534", color: "#FFFFFF" }}>✓</span>
+                    <span>Automatic Payment Verification</span>
+                  </div>
 
-                <p style={{ fontSize: "0.88rem", color: "#166534", margin: "0 0 14px 0", lineHeight: 1.5 }}>
-                  After making the <b>₹{AMOUNT}</b> payment using the QR code or your UPI app, click below to verify and unlock full ebook access instantly:
-                </p>
+                  <p style={{ fontSize: "0.88rem", color: "#166534", margin: "0 0 14px 0", lineHeight: 1.5 }}>
+                    After making the <b>₹{AMOUNT}</b> payment in your UPI app, click below to verify and unlock full ebook access instantly:
+                  </p>
 
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="btn-primary btn-accent"
-                  style={{
-                    width: "100%",
-                    padding: 16,
-                    fontSize: "1.08rem",
-                    fontWeight: 700,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: 8,
-                    opacity: isSubmitting ? 0.7 : 1,
-                    cursor: isSubmitting ? "not-allowed" : "pointer"
-                  }}
-                >
-                  {isSubmitting ? (
-                    <span>Verifying & Unlocking Ebook...</span>
-                  ) : (
-                    <>
-                      <Check size={20} /> I've Paid ₹{AMOUNT} — Unlock Ebook Now →
-                    </>
-                  )}
-                </button>
-
-                <div style={{ fontSize: "0.8rem", color: "#15803D", textAlign: "center", marginTop: 8, fontWeight: 600 }}>
-                  ⚡ Instant access • No UTR entry needed • Automatically unlocked
-                </div>
-
-                <div style={{ textAlign: "center", marginTop: 10 }}>
                   <button
                     type="button"
-                    onClick={handleInitiatePayment}
-                    className="btn-link"
-                    style={{ fontSize: "0.8rem", color: "var(--color-muted)", textDecoration: "underline" }}
+                    onClick={handleCompletePayment}
+                    disabled={isSubmitting}
+                    className="btn-primary btn-accent"
+                    style={{
+                      width: "100%",
+                      padding: 16,
+                      fontSize: "1.08rem",
+                      fontWeight: 700,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 8,
+                      opacity: isSubmitting ? 0.7 : 1,
+                      cursor: isSubmitting ? "not-allowed" : "pointer"
+                    }}
                   >
-                    Didn't open UPI app? Click here to reopen payment →
+                    {isSubmitting ? (
+                      <span>Verifying & Unlocking Ebook...</span>
+                    ) : (
+                      <>
+                        <Check size={20} /> I've Paid ₹{AMOUNT} — Unlock Ebook Now →
+                      </>
+                    )}
                   </button>
+
+                  <div style={{ fontSize: "0.8rem", color: "#15803D", textAlign: "center", marginTop: 8, fontWeight: 600 }}>
+                    ⚡ Instant access • No UTR entry needed • Automatically unlocked
+                  </div>
                 </div>
-              </div>
-            ) : (
-              <div style={{ textAlign: "center", padding: "16px 20px", background: "#F8FAFC", border: "1px dashed var(--color-border)", borderRadius: "var(--radius-md)", color: "var(--color-muted)", fontSize: "0.85rem" }}>
-                Click <b>"Tap to Pay ₹{AMOUNT} via UPI App"</b> or scan the QR code above to proceed to payment. Once redirected, the verification button will appear here to unlock your ebook.
-              </div>
+              ) : (
+                <div style={{ textAlign: "center", padding: "16px 20px", background: "#F8FAFC", border: "1px dashed var(--color-border)", borderRadius: "var(--radius-md)", color: "var(--color-muted)", fontSize: "0.85rem" }}>
+                  Click <b>"Tap to Pay ₹{AMOUNT} via UPI App"</b> above to proceed to payment. Once redirected, the verification button will appear to unlock your ebook.
+                </div>
+              )
             )}
 
             <p style={{ fontSize: "0.82rem", color: "var(--color-muted)", textAlign: "center", margin: 0 }}>
