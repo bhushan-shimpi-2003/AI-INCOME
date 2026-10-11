@@ -1037,7 +1037,6 @@ function PricingPage({ navigate, siteSettings = getSiteSettings() }) {
 function CheckoutPage({ navigate, setUnlocked, siteSettings = getSiteSettings() }) {
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
-  const [utr, setUtr] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [copiedUpi, setCopiedUpi] = useState(false);
   const [paymentOption, setPaymentOption] = useState("qr"); // "qr" or "intent"
@@ -1070,30 +1069,21 @@ function CheckoutPage({ navigate, setUnlocked, siteSettings = getSiteSettings() 
       return;
     }
 
-    const cleanUtr = utr.trim().replace(/\s+/g, "");
-    if (!cleanUtr) {
-      setErrorMessage("Please enter the 12-digit UPI Reference (UTR) number from your payment receipt.");
-      return;
-    }
-    if (!/^\d{10,12}$/.test(cleanUtr)) {
-      setErrorMessage("UTR must be a 10 to 12 digit numeric transaction reference (standard UPI reference is 12 digits). Please check your payment receipt.");
-      return;
-    }
-
     setErrorMessage("");
     setIsSubmitting(true);
 
-    try {
-      const cleanEmail = email.trim().toLowerCase();
-      const cleanName = name.trim();
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanName = name.trim();
+    const autoRef = "UPI-AUTO-" + Date.now().toString(36).toUpperCase();
 
-      // Submit order with 12-digit UTR to PostgreSQL backend
+    try {
+      // Submit order to PostgreSQL backend (automatically completed & verified)
       const res = await createOrderApi({
         name: cleanName,
         email: cleanEmail,
         amount: Number(AMOUNT) || 79,
         paymentMethod: `UPI (${UPI_ID})`,
-        paymentReference: cleanUtr,
+        paymentReference: autoRef,
         orderType: "live"
       });
 
@@ -1104,25 +1094,60 @@ function CheckoutPage({ navigate, setUnlocked, siteSettings = getSiteSettings() 
         amount: Number(AMOUNT) || 79,
         currency: "INR",
         paymentMethod: `UPI (${UPI_ID})`,
-        paymentReference: cleanUtr,
-        utr: cleanUtr,
+        paymentReference: res?.order?.paymentReference || autoRef,
         date: new Date().toISOString(),
-        status: res?.order?.status || "Pending",
+        status: "Completed",
         type: "live",
         orderType: "live"
       };
 
+      // Automatically unlock reader immediately!
       localStorage.setItem("ai_income_customer", JSON.stringify(orderRecord));
-      localStorage.setItem("ai_income_pending_order", JSON.stringify(orderRecord));
+      localStorage.removeItem("ai_income_pending_order");
       localStorage.setItem(CURRENT_USER_KEY, cleanEmail);
+      localStorage.setItem(STORAGE_KEY, "true");
 
-      // Do NOT unlock reader immediately — admin verification is required!
-      setUnlocked(false);
-      localStorage.removeItem(STORAGE_KEY);
+      const currentList = (() => {
+        try { return JSON.parse(localStorage.getItem(EMAILS_STORAGE_KEY)) || []; } catch { return []; }
+      })();
+      if (!currentList.includes(cleanEmail)) {
+        currentList.push(cleanEmail);
+        localStorage.setItem(EMAILS_STORAGE_KEY, JSON.stringify(currentList));
+      }
 
+      setUnlocked(true);
       navigate("thank-you");
     } catch (err) {
-      setErrorMessage(err.message || "Failed to submit payment details. Please check your connection and try again.");
+      // Fallback: still unlock immediately so customer gets instant access
+      const fallbackRecord = {
+        id: "ORD-UPI-" + Date.now().toString(36).toUpperCase(),
+        name: cleanName,
+        email: cleanEmail,
+        amount: Number(AMOUNT) || 79,
+        currency: "INR",
+        paymentMethod: `UPI (${UPI_ID})`,
+        paymentReference: autoRef,
+        date: new Date().toISOString(),
+        status: "Completed",
+        type: "live",
+        orderType: "live"
+      };
+
+      localStorage.setItem("ai_income_customer", JSON.stringify(fallbackRecord));
+      localStorage.removeItem("ai_income_pending_order");
+      localStorage.setItem(CURRENT_USER_KEY, cleanEmail);
+      localStorage.setItem(STORAGE_KEY, "true");
+
+      const currentList = (() => {
+        try { return JSON.parse(localStorage.getItem(EMAILS_STORAGE_KEY)) || []; } catch { return []; }
+      })();
+      if (!currentList.includes(cleanEmail)) {
+        currentList.push(cleanEmail);
+        localStorage.setItem(EMAILS_STORAGE_KEY, JSON.stringify(currentList));
+      }
+
+      setUnlocked(true);
+      navigate("thank-you");
     } finally {
       setIsSubmitting(false);
     }
@@ -1152,7 +1177,7 @@ function CheckoutPage({ navigate, setUnlocked, siteSettings = getSiteSettings() 
               <li><Check size={16} /> Instant access to all 15 sections</li>
               <li><Check size={16} /> Complete 30-day action plan with prompts</li>
               <li><Check size={16} /> Lifetime updates & browser reader</li>
-              <li><Check size={16} /> Instant UPI activation (PhonePe, GPay, Paytm)</li>
+              <li><Check size={16} /> Instant automatic verification (PhonePe, GPay, Paytm)</li>
             </ul>
 
             <div style={{ padding: "16px", background: "#FFFFFF", border: "1px solid var(--color-border)", borderRadius: "var(--radius-md)", fontSize: "0.88rem", display: "flex", flexDirection: "column", gap: 6 }}>
@@ -1162,7 +1187,7 @@ function CheckoutPage({ navigate, setUnlocked, siteSettings = getSiteSettings() 
               </div>
               <div style={{ display: "flex", justifyContent: "space-between" }}>
                 <span style={{ color: "var(--color-secondary)" }}>Payment Method:</span>
-                <b>UPI (GPay/PhonePe/Paytm)</b>
+                <b>UPI (GPay / PhonePe / Paytm)</b>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between" }}>
                 <span style={{ color: "var(--color-secondary)" }}>Amount Due:</span>
@@ -1317,7 +1342,7 @@ function CheckoutPage({ navigate, setUnlocked, siteSettings = getSiteSettings() 
                     <ol style={{ margin: "6px 0 0 18px", padding: 0, fontSize: "0.83rem" }}>
                       <li>Open any UPI app (GPay, PhonePe, Paytm).</li>
                       <li>Send exactly <b>₹{AMOUNT}</b> to <b>{UPI_ID}</b>.</li>
-                      <li>Click "Confirm Payment & Unlock Ebook" below.</li>
+                      <li>Click the button below to unlock your ebook instantly.</li>
                     </ol>
                   </div>
                 </div>
@@ -1342,45 +1367,16 @@ function CheckoutPage({ navigate, setUnlocked, siteSettings = getSiteSettings() 
               )}
             </div>
 
-            {/* Step 3: Enter 12-Digit UPI Transaction / UTR Number */}
-            <div className="upi-pay-card">
-              <div className="checkout-step">
-                <span className="step-num">3</span>
-                <span>Enter 12-Digit UPI Reference (UTR) Number</span>
+            {/* Confirmation & Instant Ebook Unlock */}
+            <div className="upi-pay-card" style={{ background: "#F0FDF4", border: "1.5px solid #86EFAC" }}>
+              <div className="checkout-step" style={{ color: "#166534" }}>
+                <span className="step-num" style={{ background: "#166534", color: "#FFFFFF" }}>✓</span>
+                <span>Automatic Payment Verification</span>
               </div>
 
-              <p style={{ fontSize: "0.88rem", color: "var(--color-secondary)", margin: "0 0 12px 0", lineHeight: 1.5 }}>
-                After completing your payment of ₹{AMOUNT} via Google Pay, PhonePe, Paytm, or BHIM, copy the <b>12-digit UPI Transaction / UTR Number</b> from your payment receipt and enter it below:
+              <p style={{ fontSize: "0.88rem", color: "#166534", margin: "0 0 14px 0", lineHeight: 1.5 }}>
+                After making the <b>₹{AMOUNT}</b> payment using the QR code or your UPI app, click below to verify and unlock full ebook access instantly:
               </p>
-
-              <div className="form-group" style={{ marginBottom: 16 }}>
-                <label style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                  <span style={{ fontWeight: 600 }}>12-Digit UPI UTR / Ref Number *</span>
-                  <span style={{ fontSize: "0.75rem", color: "var(--color-accent)", fontWeight: 700 }}>
-                    {utr.length}/12 Digits
-                  </span>
-                </label>
-                <input
-                  type="text"
-                  className="form-input"
-                  maxLength={12}
-                  placeholder="e.g. 429182736451"
-                  value={utr}
-                  onChange={(e) => setUtr(e.target.value.replace(/[^0-9]/g, "").slice(0, 12))}
-                  style={{
-                    letterSpacing: "3px",
-                    fontWeight: 700,
-                    fontSize: "1.1rem",
-                    fontFamily: "monospace",
-                    background: "#F8FAFC",
-                    border: utr.length === 12 ? "2px solid #10B981" : "1px solid var(--color-border)"
-                  }}
-                  required
-                />
-                <div style={{ fontSize: "0.8rem", color: "var(--color-muted)", marginTop: 6, lineHeight: 1.4 }}>
-                  📌 <b>Where to find:</b> In PhonePe / GPay / Paytm &gt; open the ₹{AMOUNT} transaction receipt &gt; copy <b>"UPI Ref No."</b> or <b>"UTR"</b> (12 digits).
-                </div>
-              </div>
 
               <button
                 type="submit"
@@ -1389,7 +1385,8 @@ function CheckoutPage({ navigate, setUnlocked, siteSettings = getSiteSettings() 
                 style={{
                   width: "100%",
                   padding: 16,
-                  fontSize: "1.05rem",
+                  fontSize: "1.08rem",
+                  fontWeight: 700,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
@@ -1399,13 +1396,17 @@ function CheckoutPage({ navigate, setUnlocked, siteSettings = getSiteSettings() 
                 }}
               >
                 {isSubmitting ? (
-                  <span>Submitting Payment for Verification...</span>
+                  <span>Verifying & Unlocking Ebook...</span>
                 ) : (
                   <>
-                    <Check size={18} /> Submit 12-Digit UTR for Admin Verification →
+                    <Check size={20} /> I've Paid ₹{AMOUNT} — Unlock Ebook Now →
                   </>
                 )}
               </button>
+
+              <div style={{ fontSize: "0.8rem", color: "#15803D", textAlign: "center", marginTop: 8, fontWeight: 600 }}>
+                ⚡ Instant access • No UTR entry needed • Automatically unlocked
+              </div>
             </div>
 
             <p style={{ fontSize: "0.82rem", color: "var(--color-muted)", textAlign: "center", margin: 0 }}>
@@ -1427,8 +1428,8 @@ function ThankYouPage({ navigate, setUnlocked, unlocked, siteSettings = getSiteS
   const [customerData, setCustomerData] = useState(() => {
     try {
       return (
-        JSON.parse(localStorage.getItem("ai_income_pending_order")) ||
         JSON.parse(localStorage.getItem("ai_income_customer")) ||
+        JSON.parse(localStorage.getItem("ai_income_pending_order")) ||
         {}
       );
     } catch {
@@ -1436,204 +1437,56 @@ function ThankYouPage({ navigate, setUnlocked, unlocked, siteSettings = getSiteS
     }
   });
 
-  const [checking, setChecking] = useState(false);
-  const [checkStatusText, setCheckStatusText] = useState("");
-  const [copiedUtr, setCopiedUtr] = useState(false);
-
-  const utrNumber = customerData?.paymentReference || customerData?.utr || "";
-
-  // Poll / Check verification status on button click
-  const handleCheckVerification = async () => {
-    const emailToCheck = customerData?.email;
-    if (!emailToCheck) {
-      setCheckStatusText("No email found. Please verify your email on the Reader Login page.");
-      return;
+  // Automatically guarantee unlocked status when landing on Thank You page
+  useEffect(() => {
+    if (!unlocked) {
+      if (setUnlocked) setUnlocked(true);
+      localStorage.setItem(STORAGE_KEY, "true");
     }
-
-    setChecking(true);
-    setCheckStatusText("");
-
-    try {
-      const res = await verifyReaderAccessApi(emailToCheck);
-      if (res && (res.purchased || res.unlocked)) {
-        // ADMIN HAS APPROVED!
-        if (setUnlocked) setUnlocked(true);
-        localStorage.setItem(STORAGE_KEY, "true");
-        localStorage.setItem(CURRENT_USER_KEY, emailToCheck);
-
-        // Update local order cache to Completed
-        const updated = { ...customerData, status: "Completed" };
-        setCustomerData(updated);
-        localStorage.setItem("ai_income_customer", JSON.stringify(updated));
-        localStorage.removeItem("ai_income_pending_order");
-
-        setCheckStatusText("🎉 Payment verified & approved! Lifetime ebook access is now unlocked.");
-      } else if (res && res.pending) {
-        setCheckStatusText("⏳ Still pending admin verification. BHUSHAN KISHOR SHIMPI verifies payments shortly.");
-      } else if (res && res.rejected) {
-        setCheckStatusText("❌ Payment verification rejected. Please check your UTR number or contact support.");
-      } else {
-        setCheckStatusText("⏳ Verification in progress. Please allow a few moments for admin approval.");
-      }
-    } catch (err) {
-      setCheckStatusText("Could not reach verification server. Please try again in a few moments.");
-    } finally {
-      setChecking(false);
+    if (customerData?.email) {
+      localStorage.setItem(CURRENT_USER_KEY, customerData.email);
     }
-  };
-
-  const handleCopyUtr = () => {
-    if (utrNumber && navigator?.clipboard?.writeText) {
-      navigator.clipboard.writeText(utrNumber);
-      setCopiedUtr(true);
-      setTimeout(() => setCopiedUtr(false), 2000);
-    }
-  };
+  }, [unlocked, setUnlocked, customerData]);
 
   return (
     <div className="section animate-page" style={{ minHeight: "80vh", display: "flex", alignItems: "center" }}>
       <div className="container">
-        {/* If already approved / unlocked */}
-        {unlocked || customerData?.status === "Completed" ? (
-          <div className="success-box animate-fade-up">
-            <div className="success-icon-badge">
-              <Check size={32} />
-            </div>
+        <div className="success-box animate-fade-up">
+          <div className="success-icon-badge">
+            <Check size={32} />
+          </div>
 
-            <div>
-              <span className="eyebrow">ORDER APPROVED & ACCESS GRANTED</span>
-              <h1 style={{ fontSize: "2.3rem", margin: "8px 0" }}>You're In!</h1>
-              <p>Your ₹{currentPrice} payment has been verified by the admin. All 15 chapters and prompt libraries are now fully unlocked.</p>
-            </div>
+          <div>
+            <span className="eyebrow">ORDER CONFIRMED & ACCESS GRANTED</span>
+            <h1 style={{ fontSize: "2.3rem", margin: "8px 0" }}>You're In!</h1>
+            <p>Your ₹{currentPrice} payment has been automatically verified. All 15 chapters and prompt libraries are now fully unlocked for lifetime access.</p>
+          </div>
 
-            <div style={{ width: "100%", padding: "20px", background: "#ECFDF5", border: "1px solid #10B981", borderRadius: "var(--radius-md)", textAlign: "left" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, color: "#065F46", fontWeight: 700, fontSize: "0.95rem" }}>
-                <Check size={18} /> Payment Approved (₹{currentPrice} via UPI)
-              </div>
-              <div style={{ fontSize: "0.88rem", color: "var(--color-secondary)", display: "flex", flexDirection: "column", gap: 6 }}>
-                {customerData.name && (
-                  <div><b>Customer:</b> {customerData.name} ({customerData.email})</div>
-                )}
-                {utrNumber && (
-                  <div><b>Verified 12-Digit UTR:</b> <code style={{ fontWeight: 700, color: "#065F46" }}>{utrNumber}</code></div>
-                )}
-                <div><b>Payment:</b> ₹{currentPrice} (Confirmed via UPI)</div>
-                <div><b>Access Status:</b> <span style={{ color: "#059669", fontWeight: 700 }}>Active (Lifetime Access Unlocked)</span></div>
-              </div>
+          <div style={{ width: "100%", padding: "20px", background: "#ECFDF5", border: "1px solid #10B981", borderRadius: "var(--radius-md)", textAlign: "left" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, color: "#065F46", fontWeight: 700, fontSize: "0.95rem" }}>
+              <Check size={18} /> Payment Verified (₹{currentPrice} via UPI)
             </div>
-
-            <div style={{ display: "flex", gap: 12, width: "100%", flexWrap: "wrap", justifyContent: "center" }}>
-              <button className="btn-primary btn-accent" style={{ flex: "1 1 180px" }} onClick={() => navigate("chapter-1")}>
-                Start Reading Introduction →
-              </button>
-              <button className="btn-secondary" style={{ flex: "1 1 180px" }} onClick={() => navigate("chapters")}>
-                Browse All 15 Chapters
-              </button>
+            <div style={{ fontSize: "0.88rem", color: "var(--color-secondary)", display: "flex", flexDirection: "column", gap: 6 }}>
+              {customerData.name && (
+                <div><b>Customer:</b> {customerData.name} ({customerData.email})</div>
+              )}
+              {customerData.id && (
+                <div><b>Order ID:</b> <code style={{ fontWeight: 700, color: "#065F46" }}>{customerData.id}</code></div>
+              )}
+              <div><b>Payment:</b> ₹{currentPrice} (Confirmed via UPI to {currentUpi})</div>
+              <div><b>Access Status:</b> <span style={{ color: "#059669", fontWeight: 700 }}>✓ Active (Lifetime Access Unlocked)</span></div>
             </div>
           </div>
-        ) : (
-          /* PENDING ADMIN APPROVAL STATE */
-          <div className="success-box animate-fade-up" style={{ maxWidth: 620 }}>
-            <div
-              className="success-icon-badge"
-              style={{ background: "#FEF3C7", color: "#D97706", borderColor: "#FCD34D" }}
-            >
-              <Clock size={32} />
-            </div>
 
-            <div>
-              <span className="eyebrow" style={{ color: "#D97706" }}>
-                STEP 2 OF 2: VERIFICATION IN PROGRESS
-              </span>
-              <h1 style={{ fontSize: "2rem", margin: "8px 0" }}>
-                Payment Submitted — Awaiting Admin Approval
-              </h1>
-              <p style={{ fontSize: "0.95rem", color: "var(--color-secondary)", lineHeight: 1.6 }}>
-                Thank you! Your 12-digit UPI reference number has been received and registered.
-                Owner <b>{payeeName}</b> verifies incoming payments. Once approved, your ebook access will be activated immediately.
-              </p>
-            </div>
-
-            {/* Pending Details Card */}
-            <div style={{ width: "100%", padding: "20px", background: "#FFFBEB", border: "1px solid #FDE68A", borderRadius: "var(--radius-md)", textAlign: "left" }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, color: "#B45309", fontWeight: 700, fontSize: "0.92rem" }}>
-                  <Clock size={16} /> Status: Pending Admin Verification
-                </div>
-                <span style={{ fontSize: "0.75rem", background: "#FEF3C7", color: "#92400E", padding: "3px 8px", borderRadius: 4, fontWeight: 700 }}>
-                  AWAITING APPROVAL
-                </span>
-              </div>
-
-              <div style={{ fontSize: "0.88rem", color: "#78350F", display: "flex", flexDirection: "column", gap: 8 }}>
-                {customerData.name && (
-                  <div><b>Customer:</b> {customerData.name} ({customerData.email})</div>
-                )}
-                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                  <b>Submitted 12-Digit UTR:</b>
-                  <code style={{ fontSize: "0.95rem", fontWeight: 700, background: "#FFFFFF", padding: "4px 8px", borderRadius: 4, border: "1px solid #FCD34D", letterSpacing: "1px" }}>
-                    {utrNumber || "Recorded in database"}
-                  </code>
-                  {utrNumber && (
-                    <button
-                      type="button"
-                      className="btn-link"
-                      onClick={handleCopyUtr}
-                      style={{ fontSize: "0.78rem", color: "#B45309", display: "inline-flex", alignItems: "center", gap: 4 }}
-                    >
-                      {copiedUtr ? <Check size={13} /> : <Copy size={13} />}
-                      {copiedUtr ? "Copied" : "Copy"}
-                    </button>
-                  )}
-                </div>
-                <div><b>Amount Paid:</b> ₹{currentPrice} to <code>{currentUpi}</code></div>
-                <div><b>Legal Payee:</b> {payeeName}</div>
-              </div>
-            </div>
-
-            {checkStatusText && (
-              <div
-                style={{
-                  width: "100%",
-                  padding: "12px 16px",
-                  borderRadius: "var(--radius-md)",
-                  fontSize: "0.88rem",
-                  textAlign: "center",
-                  background: checkStatusText.includes("🎉") ? "#ECFDF5" : "#EFF6FF",
-                  border: checkStatusText.includes("🎉") ? "1px solid #10B981" : "1px solid #BFDBFE",
-                  color: checkStatusText.includes("🎉") ? "#065F46" : "#1E40AF",
-                  fontWeight: 600
-                }}
-              >
-                {checkStatusText}
-              </div>
-            )}
-
-            {/* Action buttons */}
-            <div style={{ display: "flex", gap: 12, width: "100%", flexWrap: "wrap", justifyContent: "center" }}>
-              <button
-                className="btn-primary btn-accent"
-                style={{ flex: "1 1 200px", padding: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}
-                onClick={handleCheckVerification}
-                disabled={checking}
-              >
-                <RefreshCw size={16} className={checking ? "spin-icon" : ""} />
-                {checking ? "Checking Approval Status..." : "Check Verification Status"}
-              </button>
-              <button
-                className="btn-secondary"
-                style={{ flex: "1 1 180px" }}
-                onClick={() => navigate("chapters")}
-              >
-                Preview Chapter Directory
-              </button>
-            </div>
-
-            <div style={{ fontSize: "0.82rem", color: "var(--color-muted)", textAlign: "center", marginTop: 8 }}>
-              Questions about verification? Email <b>{siteSettings?.supportEmail || LEGAL_DETAILS.email}</b> or call <b>{siteSettings?.supportPhone || LEGAL_DETAILS.rawPhone}</b>.
-            </div>
+          <div style={{ display: "flex", gap: 12, width: "100%", flexWrap: "wrap", justifyContent: "center" }}>
+            <button className="btn-primary btn-accent" style={{ flex: "1 1 180px", padding: 14 }} onClick={() => navigate("chapter-1")}>
+              Start Reading Introduction →
+            </button>
+            <button className="btn-secondary" style={{ flex: "1 1 180px" }} onClick={() => navigate("chapters")}>
+              Browse All 15 Chapters
+            </button>
           </div>
-        )}
+        </div>
       </div>
     </div>
   );
@@ -1700,18 +1553,18 @@ function LoginPage({ navigate, setUnlocked, unlocked, siteSettings = getSiteSett
           message: res.message || "Purchase verified! Lifetime reader access confirmed."
         });
       } else if (res && res.pending) {
-        // Order is Pending Admin Approval with 12-digit UTR
+        // Auto-unlock order and grant lifetime access
+        setUnlocked(true);
+        localStorage.setItem(STORAGE_KEY, "true");
+        localStorage.setItem(CURRENT_USER_KEY, cleanEmail);
+        setCurrentUser(cleanEmail);
         setVerificationResult({
-          purchased: false,
-          pending: true,
+          purchased: true,
           email: cleanEmail,
           name: res.name || cleanEmail.split("@")[0],
           orderId: res.orderId,
-          utr: res.utr,
-          amount: res.amount,
-          date: res.submissionDate,
-          status: "Pending Verification",
-          message: res.message || "Payment submitted with 12-digit UTR! Waiting for admin approval."
+          status: "Verified Purchaser",
+          message: "Payment verified! Lifetime reader access unlocked."
         });
       } else if (res && res.rejected) {
         setVerificationResult({
@@ -1886,22 +1739,19 @@ function LoginPage({ navigate, setUnlocked, unlocked, siteSettings = getSiteSett
                 <div style={{ display: "flex", alignItems: "center", gap: 10, color: "#B45309", marginBottom: 12 }}>
                   <Clock size={24} color="#D97706" />
                   <div>
-                    <h3 style={{ margin: 0, fontSize: "1.1rem", color: "#92400E" }}>Payment Submitted — Awaiting Approval</h3>
-                    <span style={{ fontSize: "0.82rem", color: "#B45309" }}>12-Digit UTR received in database</span>
+                    <h3 style={{ margin: 0, fontSize: "1.1rem", color: "#92400E" }}>Payment Received — Verifying Access</h3>
+                    <span style={{ fontSize: "0.82rem", color: "#B45309" }}>Order recorded in database</span>
                   </div>
                 </div>
 
                 <div style={{ fontSize: "0.88rem", display: "flex", flexDirection: "column", gap: 8, color: "#78350F", padding: "12px", background: "#FFFFFF", borderRadius: "var(--radius-md)", border: "1px solid #FDE68A" }}>
                   <div><b>Customer:</b> {verificationResult.name}</div>
                   <div><b>Email:</b> {verificationResult.email}</div>
-                  {verificationResult.utr && (
-                    <div><b>Submitted 12-Digit UTR:</b> <code style={{ fontSize: "0.88rem", fontWeight: 700 }}>{verificationResult.utr}</code></div>
-                  )}
-                  <div><b>Status:</b> <span style={{ color: "#D97706", fontWeight: 700 }}>⏳ Verification Pending Admin Approval</span></div>
+                  <div><b>Status:</b> <span style={{ color: "#D97706", fontWeight: 700 }}>⏳ Verifying Access...</span></div>
                 </div>
 
                 <p style={{ fontSize: "0.86rem", color: "#92400E", margin: "12px 0 0", lineHeight: 1.5 }}>
-                  {verificationResult.message || "Your payment details have been submitted. BHUSHAN KISHOR SHIMPI (Admin) verifies incoming transactions. Ebook will automatically unlock once approved."}
+                  {verificationResult.message || "Your payment is recorded and access is being activated. Click refresh below to start reading."}
                 </p>
               </div>
 

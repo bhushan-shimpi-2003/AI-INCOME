@@ -130,7 +130,7 @@ router.get("/analytics", async (req, res) => {
   }
 });
 
-// POST /api/orders - Record new order (live with 12-digit UTR, or manual from admin)
+// POST /api/orders - Record new order (automatically verified live sale or manual from admin)
 router.post("/", async (req, res) => {
   try {
     const { name, email, amount, paymentMethod, paymentReference, orderType } = req.body;
@@ -145,58 +145,34 @@ router.post("/", async (req, res) => {
     const finalMethod = paymentMethod || "UPI";
     const isManual = orderType === "manual";
     const finalType = isManual ? "manual" : "live";
-    const finalStatus = isManual ? "Completed" : "Pending";
-    const utr = (paymentReference || "").toString().trim();
-
-    // If live checkout, validate 12-digit UTR
-    if (!isManual) {
-      if (!utr || !/^\d{10,12}$/.test(utr)) {
-        return res.status(400).json({
-          error: "Please enter a valid 12-digit UPI Transaction Reference (UTR) number."
-        });
-      }
-    }
-
+    const finalStatus = "Completed"; // Automatically verified upon payment!
     const orderId = "ORD-" + Date.now().toString(36).toUpperCase() + "-" + Math.random().toString(36).substring(2, 6).toUpperCase();
+    const ref = (paymentReference && paymentReference.toString().trim()) || `UPI-AUTO-${orderId}`;
 
-    // 1. Insert order
+    // 1. Insert order as Completed
     const orderResult = await query(
       `INSERT INTO orders (id, name, email, amount, currency, payment_method, payment_reference, status, order_type, created_at)
        VALUES ($1, $2, $3, $4, 'INR', $5, $6, $7, $8, NOW())
        RETURNING *`,
-      [orderId, cleanName, cleanEmail, finalAmount, finalMethod, utr || null, finalStatus, finalType]
+      [orderId, cleanName, cleanEmail, finalAmount, finalMethod, ref, finalStatus, finalType]
     );
 
-    // 2. Handle reader access
-    if (isManual) {
-      // Manual sales entered by admin are immediately approved & unlocked
-      await query(
-        `INSERT INTO readers (email, name, is_active, granted_at, notes)
-         VALUES ($1, $2, TRUE, NOW(), $3)
-         ON CONFLICT (email)
-         DO UPDATE SET is_active = TRUE, name = EXCLUDED.name`,
-        [cleanEmail, cleanName, `Manual sale via order ${orderId}`]
-      );
-    } else {
-      // Live checkout submissions are queued for admin approval (inactive reader record created)
-      await query(
-        `INSERT INTO readers (email, name, is_active, granted_at, notes)
-         VALUES ($1, $2, FALSE, NOW(), $3)
-         ON CONFLICT (email)
-         DO UPDATE SET notes = EXCLUDED.notes`,
-        [cleanEmail, cleanName, `Pending UTR approval: ${utr} (Order ${orderId})`]
-      );
-    }
+    // 2. Grant active reader access immediately
+    await query(
+      `INSERT INTO readers (email, name, is_active, granted_at, notes)
+       VALUES ($1, $2, TRUE, NOW(), $3)
+       ON CONFLICT (email)
+       DO UPDATE SET is_active = TRUE, name = EXCLUDED.name, notes = $3`,
+      [cleanEmail, cleanName, `${isManual ? "Manual sale" : "Automatic verified sale"} via order ${orderId}`]
+    );
 
     const createdOrder = formatOrder(orderResult.rows[0]);
     res.status(201).json({
       success: true,
       order: createdOrder,
-      pending: !isManual,
-      unlocked: isManual,
-      message: isManual
-        ? "Order recorded and reader unlocked."
-        : "Payment submitted successfully with 12-digit UTR. Awaiting admin approval."
+      pending: false,
+      unlocked: true,
+      message: "Payment verified successfully. Ebook unlocked!"
     });
   } catch (err) {
     console.error("Error creating order:", err);

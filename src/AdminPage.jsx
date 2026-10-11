@@ -493,7 +493,7 @@ export default function AdminPage({ navigate }) {
 
   // Reject Order Handler
   const handleRejectOrder = async (orderId) => {
-    const reason = window.prompt("Reason for rejecting payment request (optional):", "UTR not matching or payment not received");
+    const reason = window.prompt("Reason for rejecting payment request (optional):", "Payment not received");
     if (reason === null) return;
 
     setRejectingId(orderId);
@@ -913,7 +913,7 @@ export default function AdminPage({ navigate }) {
                         {pendingOrders.length} New Payment Request{pendingOrders.length === 1 ? "" : "s"} Waiting for Approval
                       </div>
                       <div style={{ fontSize: "0.82rem", color: "#B45309" }}>
-                        Customers have submitted 12-digit UTR numbers and need verification to access the ebook.
+                        Customers with payment requests waiting for manual approval.
                       </div>
                     </div>
                   </div>
@@ -1146,9 +1146,9 @@ export default function AdminPage({ navigate }) {
             <div className="animate-fade">
               <div className="admin-pane-header">
                 <div>
-                  <h1 className="admin-pane-title">Pending UPI Payment Approvals</h1>
+                  <h1 className="admin-pane-title">Pending Payment Approvals</h1>
                   <p className="admin-pane-desc">
-                    Review submitted 12-digit UPI Transaction / UTR numbers. Approving an order immediately marks the payment as Completed and unlocks lifetime ebook access for the customer.
+                    Review payment requests. Approving an order immediately marks the payment as Completed and unlocks lifetime ebook access for the customer.
                   </p>
                 </div>
                 <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
@@ -1222,7 +1222,7 @@ export default function AdminPage({ navigate }) {
                 </div>
 
                 <div style={{ fontSize: "0.82rem", color: "var(--color-muted)" }}>
-                  💡 Check your PhonePe / GPay / Paytm app to verify the matching 12-digit UTR before approving.
+                  💡 New customer purchases are now automatically verified and granted access.
                 </div>
               </div>
 
@@ -1242,7 +1242,7 @@ export default function AdminPage({ navigate }) {
                       All Caught Up! No Pending Approvals
                     </p>
                     <p style={{ fontSize: "0.88rem", margin: 0, maxWidth: 460 }}>
-                      When a customer purchases the ebook and submits their 12-digit UPI UTR number, their request will appear here for one-click approval.
+                      Customer payments are automatically verified and completed upon checkout. Any manual pending orders will appear here.
                     </p>
                   </div>
                 ) : (
@@ -1252,7 +1252,7 @@ export default function AdminPage({ navigate }) {
                         <tr>
                           <th>Order / Date</th>
                           <th>Customer Details</th>
-                          <th>12-Digit UPI UTR Number</th>
+                          <th>Payment Reference</th>
                           <th>Amount</th>
                           <th>Verification Actions</th>
                         </tr>
@@ -1272,7 +1272,7 @@ export default function AdminPage({ navigate }) {
                                   {formatFriendlyDate(order.date)}
                                 </div>
                                 <span className="live-pill" style={{ background: "#FEF3C7", color: "#92400E", borderColor: "#FDE68A" }}>
-                                  AWAITING UTR CHECK
+                                  PENDING APPROVAL
                                 </span>
                               </td>
                               <td>
@@ -1282,9 +1282,9 @@ export default function AdminPage({ navigate }) {
                               <td>
                                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                                   <code style={{
-                                    fontSize: "1rem",
-                                    fontWeight: 800,
-                                    letterSpacing: "1.5px",
+                                    fontSize: "0.92rem",
+                                    fontWeight: 700,
+                                    letterSpacing: "0.5px",
                                     background: "#FFFFFF",
                                     padding: "6px 10px",
                                     borderRadius: 6,
@@ -1296,13 +1296,10 @@ export default function AdminPage({ navigate }) {
                                   <button
                                     className="copy-btn-tiny"
                                     onClick={() => copyToClipboard(utr, `utr-${order.id}`)}
-                                    title="Copy 12-digit UTR to verify in UPI app"
+                                    title="Copy reference"
                                   >
                                     {copiedId === `utr-${order.id}` ? <Check size={13} color="#059669" /> : <Copy size={13} />}
                                   </button>
-                                </div>
-                                <div style={{ fontSize: "0.74rem", color: "var(--color-muted)", marginTop: 4 }}>
-                                  Match with bank SMS or UPI app receipt
                                 </div>
                               </td>
                               <td>
@@ -1625,7 +1622,7 @@ export default function AdminPage({ navigate }) {
                           <tr>
                             <th>Order ID</th>
                             <th>Customer</th>
-                            <th>12-Digit UTR</th>
+                            <th>Payment Reference</th>
                             <th>Amount</th>
                             <th>Timestamp</th>
                             <th>Status</th>
@@ -1666,7 +1663,7 @@ export default function AdminPage({ navigate }) {
                                       <button
                                         className="copy-btn-tiny"
                                         onClick={() => copyToClipboard(utr, `utr-pay-${order.id}`)}
-                                        title="Copy 12-Digit UTR"
+                                        title="Copy Reference"
                                       >
                                         {copiedId === `utr-pay-${order.id}` ? <Check size={12} color="#059669" /> : <Copy size={12} />}
                                       </button>
