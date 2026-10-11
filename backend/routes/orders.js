@@ -265,6 +265,40 @@ router.post("/:id/reject", async (req, res) => {
   }
 });
 
+// PATCH /api/orders/:id - Update order
+router.patch("/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, name, amount, paymentReference } = req.body || {};
+
+    const result = await query(
+      `UPDATE orders
+       SET status = COALESCE($1, status),
+           name = COALESCE($2, name),
+           amount = COALESCE($3, amount),
+           payment_reference = COALESCE($4, payment_reference)
+       WHERE id = $5
+       RETURNING *`,
+      [
+        status !== undefined && status !== null ? String(status) : null,
+        name !== undefined && name !== null ? String(name) : null,
+        amount !== undefined && amount !== null && amount !== "" ? Number(amount) : null,
+        paymentReference !== undefined && paymentReference !== null ? String(paymentReference) : null,
+        id
+      ]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: `Order ${id} not found` });
+    }
+
+    res.json({ success: true, order: formatOrder(result.rows[0]) });
+  } catch (err) {
+    console.error("Error updating order:", err);
+    res.status(500).json({ error: "Failed to update order: " + err.message });
+  }
+});
+
 // DELETE /api/orders/:id
 router.delete("/:id", async (req, res) => {
   try {

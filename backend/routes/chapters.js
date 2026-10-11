@@ -48,9 +48,10 @@ router.get("/:id", async (req, res) => {
 router.put("/:id", async (req, res) => {
   try {
     const id = parseInt(req.params.id, 10);
-    const { title, description, readTime, blocks } = req.body;
+    const { title, description, desc, readTime, blocks } = req.body || {};
+    const finalDesc = description !== undefined ? description : (desc !== undefined ? desc : null);
 
-    const result = await query(
+    let result = await query(
       `UPDATE chapters
        SET title = COALESCE($1, title),
            description = COALESCE($2, description),
@@ -61,28 +62,55 @@ router.put("/:id", async (req, res) => {
        WHERE id = $5
        RETURNING *`,
       [
-        title,
-        description,
-        readTime,
-        blocks ? JSON.stringify(blocks) : null,
+        title !== undefined && title !== null ? String(title) : null,
+        finalDesc !== undefined && finalDesc !== null ? String(finalDesc) : null,
+        readTime !== undefined && readTime !== null ? String(readTime) : null,
+        blocks !== undefined && blocks !== null ? JSON.stringify(blocks) : null,
         id
       ]
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: "Chapter not found" });
+      result = await query(
+        `INSERT INTO chapters (id, title, description, read_time, blocks, is_custom, updated_at)
+         VALUES ($1, $2, $3, $4, $5, TRUE, NOW())
+         RETURNING *`,
+        [
+          id,
+          title || `Section ${id}`,
+          finalDesc || "",
+          readTime || "5 min",
+          JSON.stringify(blocks || [])
+        ]
+      );
     }
     res.json(formatChapter(result.rows[0]));
   } catch (err) {
     console.error("Error updating chapter:", err);
-    res.status(500).json({ error: "Failed to update chapter" });
+    res.status(500).json({ error: "Failed to update chapter: " + err.message });
+  }
+});
+
+// DELETE /api/chapters/:id - Delete chapter
+router.delete("/:id", async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    const result = await query("DELETE FROM chapters WHERE id = $1 RETURNING id", [id]);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Chapter not found" });
+    }
+    res.json({ success: true, message: `Chapter ${id} deleted` });
+  } catch (err) {
+    console.error("Error deleting chapter:", err);
+    res.status(500).json({ error: "Failed to delete chapter" });
   }
 });
 
 // POST /api/chapters - Add new custom chapter
 router.post("/", async (req, res) => {
   try {
-    const { title, description, readTime, blocks } = req.body;
+    const { title, description, desc, readTime, blocks } = req.body || {};
+    const finalDesc = description !== undefined ? description : (desc !== undefined ? desc : "");
     const maxRes = await query("SELECT COALESCE(MAX(id), 0) + 1 as next_id FROM chapters");
     const nextId = parseInt(maxRes.rows[0].next_id, 10);
 
@@ -93,7 +121,7 @@ router.post("/", async (req, res) => {
       [
         nextId,
         title || `New Section ${nextId}`,
-        description || "",
+        finalDesc || "",
         readTime || "5 min",
         JSON.stringify(blocks || [])
       ]
@@ -102,7 +130,7 @@ router.post("/", async (req, res) => {
     res.status(201).json(formatChapter(result.rows[0]));
   } catch (err) {
     console.error("Error creating chapter:", err);
-    res.status(500).json({ error: "Failed to create chapter" });
+    res.status(500).json({ error: "Failed to create chapter: " + err.message });
   }
 });
 

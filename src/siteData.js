@@ -75,8 +75,12 @@ export function getSiteSettings() {
       ) {
         merged.supportEmail = DEFAULT_SETTINGS.supportEmail;
       }
-      merged.supportPhone = DEFAULT_SETTINGS.supportPhone;
-      merged.payeeName = DEFAULT_SETTINGS.payeeName;
+      if (!merged.payeeName) {
+        merged.payeeName = DEFAULT_SETTINGS.payeeName;
+      }
+      if (!merged.supportPhone) {
+        merged.supportPhone = DEFAULT_SETTINGS.supportPhone;
+      }
       return merged;
     }
   } catch (e) {}
@@ -244,8 +248,15 @@ export async function apiFetch(endpoint, options = {}) {
     "Content-Type": "application/json"
   };
 
+  const timeoutMs = options.timeout || 15000;
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 3500);
+  const timeoutId = setTimeout(() => {
+    try {
+      controller.abort(new Error(`Request to ${url} timed out after ${timeoutMs}ms`));
+    } catch {
+      controller.abort();
+    }
+  }, timeoutMs);
 
   try {
     const response = await fetch(url, {
@@ -365,6 +376,12 @@ export async function resetAllChaptersApi() {
   }
 }
 
+export async function deleteChapterApi(chapterId) {
+  return await apiFetch(`/api/chapters/${chapterId}`, {
+    method: "DELETE"
+  });
+}
+
 // 3. Orders & Analytics APIs
 export async function fetchOrdersApi() {
   try {
@@ -456,6 +473,12 @@ export async function grantReaderApi(email, name, notes) {
 export async function revokeReaderApi(email) {
   return await apiFetch(`/api/readers/${encodeURIComponent(email)}/revoke`, {
     method: "POST"
+  });
+}
+
+export async function deleteReaderApi(email) {
+  return await apiFetch(`/api/readers/${encodeURIComponent(email)}`, {
+    method: "DELETE"
   });
 }
 

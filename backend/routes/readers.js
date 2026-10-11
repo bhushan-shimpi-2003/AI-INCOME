@@ -224,4 +224,22 @@ router.post("/:email/revoke", async (req, res) => {
   }
 });
 
+// DELETE /api/readers/:email - Delete reader
+router.delete("/:email", async (req, res) => {
+  try {
+    const cleanEmail = decodeURIComponent(req.params.email).trim().toLowerCase();
+    const result = await query(
+      "DELETE FROM readers WHERE LOWER(email) = $1 RETURNING email",
+      [cleanEmail]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: `Reader ${cleanEmail} not found` });
+    }
+    res.json({ success: true, message: `Reader ${cleanEmail} deleted` });
+  } catch (err) {
+    console.error("Error deleting reader:", err);
+    res.status(500).json({ error: "Failed to delete reader: " + err.message });
+  }
+});
+
 export default router;

@@ -17,12 +17,12 @@ app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
 // Health check endpoint
-app.get("/api/health", (req, res) => {
+app.get(["/api/health", "/health"], (req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
 // Database initialization trigger endpoint
-app.all("/api/init-db", async (req, res) => {
+app.all(["/api/init-db", "/init-db"], async (req, res) => {
   try {
     const { initializeDatabase } = await import("./initDb.js");
     await initializeDatabase();
@@ -34,13 +34,28 @@ app.all("/api/init-db", async (req, res) => {
 
 // API Routes
 app.use("/api/settings", settingsRouter);
+app.use("/settings", settingsRouter);
+
 app.use("/api/orders", ordersRouter);
+app.use("/orders", ordersRouter);
+
 app.use("/api/readers", readersRouter);
+app.use("/readers", readersRouter);
+
 app.use("/api/chapters", chaptersRouter);
+app.use("/chapters", chaptersRouter);
+
 app.use("/api/contact", contactRouter);
+app.use("/contact", contactRouter);
+
 app.use("/api/reviews", reviewsRouter);
+app.use("/reviews", reviewsRouter);
+
 app.use("/api/faqs", faqsRouter);
+app.use("/faqs", faqsRouter);
+
 app.use("/api/admin", adminRouter);
+app.use("/admin", adminRouter);
 
 // Catch-all 404 for unhandled API routes
 app.use("/api", (req, res) => {

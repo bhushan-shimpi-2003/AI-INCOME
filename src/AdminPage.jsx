@@ -320,15 +320,23 @@ export default function AdminPage({ navigate }) {
   const handleSaveSettings = async (e) => {
     e.preventDefault();
     setSettingsSavedToast("Saving settings to database...");
+    const payload = {
+      ...settings,
+      price: Number(settings.price) > 0 ? Number(settings.price) : 79,
+      originalPrice: Number(settings.originalPrice) > 0 ? Number(settings.originalPrice) : 499
+    };
     try {
-      const updated = await saveSiteSettingsApi(settings);
-      setSettings(updated);
+      const updated = await saveSiteSettingsApi(payload);
+      if (updated) {
+        setSettings(updated);
+      }
       setSettingsSavedToast("✓ Settings updated and live across the entire website!");
-    } catch {
-      saveSiteSettings(settings);
-      setSettingsSavedToast("✓ Settings saved.");
+    } catch (err) {
+      saveSiteSettings(payload);
+      setSettings(payload);
+      setSettingsSavedToast("✓ Settings saved locally: " + (err.message || ""));
     }
-    setTimeout(() => setSettingsSavedToast(""), 3000);
+    setTimeout(() => setSettingsSavedToast(""), 3500);
   };
 
   // Save Single Chapter
@@ -1984,7 +1992,15 @@ export default function AdminPage({ navigate }) {
                           min="1"
                           className="form-input"
                           value={settings.price}
-                          onChange={(e) => setSettings({ ...settings, price: Number(e.target.value) || 79 })}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setSettings({ ...settings, price: val === "" ? "" : Number(val) });
+                          }}
+                          onBlur={() => {
+                            if (!settings.price || Number(settings.price) < 1) {
+                              setSettings({ ...settings, price: 79 });
+                            }
+                          }}
                           required
                         />
                       </div>
@@ -1996,7 +2012,15 @@ export default function AdminPage({ navigate }) {
                           min="1"
                           className="form-input"
                           value={settings.originalPrice}
-                          onChange={(e) => setSettings({ ...settings, originalPrice: Number(e.target.value) || 499 })}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setSettings({ ...settings, originalPrice: val === "" ? "" : Number(val) });
+                          }}
+                          onBlur={() => {
+                            if (!settings.originalPrice || Number(settings.originalPrice) < 1) {
+                              setSettings({ ...settings, originalPrice: 499 });
+                            }
+                          }}
                           required
                         />
                       </div>
