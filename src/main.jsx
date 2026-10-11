@@ -1099,6 +1099,44 @@ function CheckoutPage({ navigate, setUnlocked, siteSettings = getSiteSettings() 
   const qrWaitMins = Math.floor(qrWaitLeft / 60);
   const qrWaitSecs = qrWaitLeft % 60;
 
+  // Intent (UPI App) 3-minute verification timer state
+  const [intentElapsed, setIntentElapsed] = useState(() => {
+    const savedStart = sessionStorage.getItem("ai_income_intent_start_time");
+    if (savedStart) {
+      return Math.floor((Date.now() - parseInt(savedStart, 10)) / 1000);
+    }
+    return 0;
+  });
+
+  useEffect(() => {
+    let interval = null;
+    if (paymentInitiated) {
+      let savedStart = sessionStorage.getItem("ai_income_intent_start_time");
+      if (!savedStart) {
+        savedStart = Date.now().toString();
+        sessionStorage.setItem("ai_income_intent_start_time", savedStart);
+      }
+
+      const updateTimer = () => {
+        const start = parseInt(sessionStorage.getItem("ai_income_intent_start_time") || Date.now().toString(), 10);
+        const elapsed = Math.floor((Date.now() - start) / 1000);
+        setIntentElapsed(elapsed);
+      };
+
+      updateTimer();
+      interval = setInterval(updateTimer, 1000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [paymentInitiated]);
+
+  const INTENT_WAIT_SECONDS = 180; // 3-minute verification wait
+  const intentCanUnlock = intentElapsed >= INTENT_WAIT_SECONDS;
+  const intentWaitLeft = Math.max(0, INTENT_WAIT_SECONDS - intentElapsed);
+  const intentWaitMins = Math.floor(intentWaitLeft / 60);
+  const intentWaitSecs = intentWaitLeft % 60;
+
   const UPI_ID = siteSettings?.upiId || "bhushan.shimpi1@ybl";
   const AMOUNT = String(siteSettings?.price || 79);
   const PAYEE_NAME = siteSettings?.payeeName || LEGAL_DETAILS.legalName;
@@ -1129,8 +1167,10 @@ function CheckoutPage({ navigate, setUnlocked, siteSettings = getSiteSettings() 
     setErrorMessage("");
     setPaymentInitiated(true);
     sessionStorage.setItem("ai_income_payment_initiated", "true");
+    sessionStorage.setItem("ai_income_intent_start_time", Date.now().toString());
     sessionStorage.setItem("ai_income_checkout_name", name.trim());
     sessionStorage.setItem("ai_income_checkout_email", email.trim().toLowerCase());
+    setIntentElapsed(0);
 
     // Redirect to UPI payment app (PhonePe / Google Pay / Paytm)
     window.location.href = upiUrl;
@@ -1174,6 +1214,7 @@ function CheckoutPage({ navigate, setUnlocked, siteSettings = getSiteSettings() 
     localStorage.setItem(CURRENT_USER_KEY, cleanEmail);
     localStorage.setItem(STORAGE_KEY, "true");
     sessionStorage.removeItem("ai_income_payment_initiated");
+    sessionStorage.removeItem("ai_income_intent_start_time");
     sessionStorage.removeItem("ai_income_qr_start_time");
 
     const currentList = (() => {
@@ -1352,10 +1393,51 @@ function CheckoutPage({ navigate, setUnlocked, siteSettings = getSiteSettings() 
                         Clicking <b>"Make Payment"</b> will open Google Pay, PhonePe, or Paytm with ₹{AMOUNT} prefilled. Once your payment is complete, return here and click <b>"Payment Done"</b> to get instant access.
                       </p>
                     </>
+                  ) : !intentCanUnlock ? (
+                    <div className="animate-fade-up" style={{
+                      padding: "18px 20px",
+                      background: "#F8FAFC",
+                      border: "1.5px dashed #CBD5E1",
+                      borderRadius: "var(--radius-md)",
+                      textAlign: "center"
+                    }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, color: "var(--color-primary)", fontWeight: 700, fontSize: "0.98rem" }}>
+                        <RefreshCw size={18} className="spin-icon" color="var(--color-accent)" />
+                        <span>Verifying your payment, please wait...</span>
+                      </div>
+                      <p style={{ margin: "8px 0 12px", fontSize: "0.84rem", color: "var(--color-secondary)", lineHeight: 1.5 }}>
+                        Connecting with UPI app to verify ₹{AMOUNT} payment. Please keep this page open while verification is in progress.
+                      </p>
+                      <div style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 6,
+                        padding: "6px 16px",
+                        background: "#FEF3C7",
+                        color: "#92400E",
+                        border: "1px solid #FCD34D",
+                        borderRadius: "9999px",
+                        fontSize: "0.92rem",
+                        fontWeight: 700
+                      }}>
+                        <Clock size={15} />
+                        <span>Verifying: {intentWaitMins}:{String(intentWaitSecs).padStart(2, "0")}</span>
+                      </div>
+                      <div style={{ marginTop: 12 }}>
+                        <button
+                          type="button"
+                          onClick={handleInitiatePayment}
+                          className="btn-link"
+                          style={{ fontSize: "0.8rem", color: "var(--color-muted)", textDecoration: "underline" }}
+                        >
+                          Didn't open UPI app? Click here to reopen payment →
+                        </button>
+                      </div>
+                    </div>
                   ) : (
                     <div className="animate-fade-up" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                      <div style={{ padding: "12px 14px", background: "#EFF6FF", border: "1px solid #BFDBFE", borderRadius: "var(--radius-md)", color: "#1E40AF", fontSize: "0.88rem", textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontWeight: 600 }}>
-                        <Check size={18} color="#2563EB" /> UPI App Launched. Did you complete the payment?
+                      <div style={{ padding: "10px 14px", background: "#F0FDF4", border: "1px solid #86EFAC", borderRadius: "var(--radius-md)", color: "#166534", fontSize: "0.85rem", textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontWeight: 600 }}>
+                        <Check size={18} color="#166534" /> Payment verification complete! Click below to access your ebook:
                       </div>
 
                       <button
@@ -1469,28 +1551,40 @@ function CheckoutPage({ navigate, setUnlocked, siteSettings = getSiteSettings() 
                       style={{
                         width: "100%",
                         marginTop: 10,
-                        padding: "14px 16px",
+                        padding: "16px 18px",
                         background: "#F8FAFC",
                         border: "1.5px dashed #CBD5E1",
                         borderRadius: "var(--radius-md)",
                         textAlign: "center"
                       }}
                     >
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, color: "var(--color-primary)", fontWeight: 700, fontSize: "0.92rem" }}>
-                        <Clock size={16} color="var(--color-accent)" />
-                        <span>Verifying UPI Payment...</span>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, color: "var(--color-primary)", fontWeight: 700, fontSize: "0.95rem" }}>
+                        <RefreshCw size={18} className="spin-icon" color="var(--color-accent)" />
+                        <span>Verifying your payment, please wait...</span>
                       </div>
-                      <p style={{ margin: "6px 0 6px", fontSize: "0.82rem", color: "var(--color-secondary)", lineHeight: 1.4 }}>
-                        Please scan the QR code and complete your ₹{AMOUNT} payment. The <b>Payment Done</b> button will appear after the 3-minute verification period.
+                      <p style={{ margin: "8px 0 10px", fontSize: "0.84rem", color: "var(--color-secondary)", lineHeight: 1.4 }}>
+                        Please scan QR code with any UPI app and send ₹{AMOUNT}. Verification in progress...
                       </p>
-                      <div style={{ fontSize: "0.82rem", color: "var(--color-accent)", fontWeight: 700 }}>
-                        ⏳ "Payment Done" button unlocks in {qrWaitMins}:{String(qrWaitSecs).padStart(2, "0")}
+                      <div style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 6,
+                        padding: "6px 16px",
+                        background: "#FEF3C7",
+                        color: "#92400E",
+                        border: "1px solid #FCD34D",
+                        borderRadius: "9999px",
+                        fontSize: "0.9rem",
+                        fontWeight: 700
+                      }}>
+                        <Clock size={15} />
+                        <span>Verifying: {qrWaitMins}:{String(qrWaitSecs).padStart(2, "0")}</span>
                       </div>
                     </div>
                   ) : (
                     <div style={{ width: "100%", marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
                       <div style={{ padding: "8px 12px", background: "#F0FDF4", border: "1px solid #86EFAC", borderRadius: "var(--radius-md)", color: "#166534", fontSize: "0.82rem", fontWeight: 600 }}>
-                        ✓ 3-minute payment verification complete! Click below to access the ebook:
+                        ✓ Payment verification complete! Click below to access the ebook:
                       </div>
                       <button
                         type="button"
